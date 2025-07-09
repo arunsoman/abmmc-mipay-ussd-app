@@ -4,6 +4,7 @@ config = {
         "prompt": "Enter Your My Money Pin:\n",
         "valid_pin": "123456",
         "max_attempts": 3,
+        "validation_url": "https://example.com/validate",
         "on_success": {"target_menu": "main_menu"},
         "on_failure": {"target_menu": "exit_node"}
     },
@@ -95,7 +96,7 @@ config = {
         "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "my_money_menu",
-            "0": "exit_node"
+            "0": "exit_no   de"
         }
     },
     "language_menu": {

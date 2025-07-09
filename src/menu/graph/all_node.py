@@ -184,37 +184,68 @@ class ValidationGateNode(MenuNode):
         self.max_attempts = config.get("max_attempts", 3)
         self.current_attempts = 0
         self.valid_pin = config.get("valid_pin", "123456")
+        self.validation_url = config.get("validation_url")  # Optional URL for validation
         self.service = cast(AuthService, ServiceRegistry.get_service("auth"))
 
     def validate(self, user_input: str) -> str:
         self.current_attempts += 1
         self.validation_error = ""
         
-        token = self.service.validate_pin(self.msisdn, user_input)
-        if self.msisdn and token:
-            service_config[self.msisdn] = {
-                "msisdn": self.msisdn,
-                "auth_token": token
-            }
-            return "success"
-        
+        if self.validation_url:
+            # If validation_url is provided, use it to validate the input
+            try:
+                payload = {"pin": user_input, "msisdn": self.msisdn}
+                response = requests.post(self.validation_url, json=payload, timeout=5)
+                if response.status_code == 200:
+                    token = response.headers.get("Authorization")
+                    if token:
+                        service_config[self.msisdn] = {
+                            "msisdn": self.msisdn,
+                            "auth_token": token
+                        }
+                        return "success"
+                    else:
+                        self.validation_error = "Validation failed: No Authorization header found"
+                else:
+                    self.validation_error = f"Validation failed: Server returned {response.status_code}"
+            except requests.RequestException as e:
+                self.validation_error = f"Validation error: {str(e)}"
+        else:
+            # Fallback to the existing AuthService validation
+            token = self.service.validate_pin(self.msisdn, user_input)
+            if self.msisdn and token:
+                service_config[self.msisdn] = {
+                    "msisdn": self.msisdn,
+                    "auth_token": token
+                }
+                return "success"
+            self.validation_error = "Invalid PIN"
+
+        # Check if max attempts are reached
         if self.current_attempts >= self.max_attempts:
             return "failure"
         
-        self.validation_error = "Invalid PIN. Enter PIN."
-        return ""
+        return ""  # Stay in current node
 
     def processInput(self, user_input: str) -> str:
         validation_result = self.validate(user_input)
         
-        if validation_result:
-            target_node_id = self.next_nodes.get(validation_result)
+        if validation_result == "success":
+            target_node_id = self.next_nodes.get("success")
+            if target_node_id and self.engine:
+                self.engine.navigation_stack.append(self.engine.current_node_id)
+                self.engine.set_current_node(target_node_id)
+                return self.engine.current_node.get_prompt()
+        
+        elif validation_result == "failure":
+            target_node_id = self.next_nodes.get("failure")
             if target_node_id and self.engine:
                 self.engine.navigation_stack.append(self.engine.current_node_id)
                 self.engine.set_current_node(target_node_id)
                 return self.engine.current_node.get_prompt()
         
         return self.get_prompt()
+
 
 class TransferNode(MenuNode):
     def __init__(self, node_id: str, config: Dict[str, Any]):
