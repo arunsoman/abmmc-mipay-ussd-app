@@ -1,4 +1,4 @@
-config ={
+config = {
     "root_validation_gate": {
         "type": "validation_gate",
         "prompt": "Enter Your My Money Pin:\n",
@@ -45,13 +45,27 @@ config ={
         }
     },
     "change_pin": {
-        "type": "single_input_action",
-        "prompt": "Enter your new My Money PIN:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your new My Money PIN (6 digits):\n",
+                "input_key": "new_pin",
+                "validation": {"regex": "^\\d{6}$"}
+            },
+            {
+                "prompt": "Confirm your new PIN:\n",
+                "input_key": "confirm_pin",
+                "validation": {"regex": "^\\d{6}$"}
+            }
+        ],
+        "confirmation_prompt": "Change PIN to {new_pin}? 1: OK, 2: Cancel",
+        "action_url": "/api/change_pin",
+        "params": {},
+        "success_prompt": "PIN changed successfully\nReceipt: {receipt_number}",
         "transitions": {
             "9": "my_money_menu",
             "0": "exit_node"
-        },
-        "action": "change_pin_service"
+        }
     },
     "transaction_menu": {
         "type": "single_input_action",
@@ -62,13 +76,27 @@ config ={
         }
     },
     "transfer_menu": {
-        "type": "single_input_action",
-        "prompt": "Enter the amount to transfer:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the recipient's phone number:\n",
+                "input_key": "phone_number",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN to {phone_number}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer",
+        "params": {},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "my_money_menu",
             "0": "exit_node"
-        },
-        "action": "transfer_service"
+        }
     },
     "language_menu": {
         "type": "menu_navigation",
@@ -120,24 +148,69 @@ config ={
         }
     },
     "maiwand_link": {
-        "type": "single_input_action",
-        "prompt": "Enter bank account details to link:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your Maiwand account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter your bank PIN:\n",
+                "input_key": "bank_pin",
+                "validation": {"regex": "^\\d{4}$"}
+            }
+        ],
+        "confirmation_prompt": "Link Maiwand account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/link_bank",
+        "params": {"bank": "Maiwand"},
+        "success_prompt": "Account linked\nReceipt: {receipt_number}",
         "transitions": {
             "9": "maiwand_bank",
             "0": "exit_node"
         }
     },
     "maiwand_transfer_to": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer to Maiwand Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the recipient's account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN to Maiwand account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_bank",
+        "params": {"bank": "Maiwand"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "maiwand_bank",
             "0": "exit_node"
         }
     },
     "maiwand_transfer_from": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer from Maiwand Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your Maiwand account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN from Maiwand account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_from_bank",
+        "params": {"bank": "Maiwand"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "maiwand_bank",
             "0": "exit_node"
@@ -165,24 +238,69 @@ config ={
         }
     },
     "nkb_link": {
-        "type": "single_input_action",
-        "prompt": "Enter bank account details to link:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your NKB account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter your bank PIN:\n",
+                "input_key": "bank_pin",
+                "validation": {"regex": "^\\d{4}$"}
+            }
+        ],
+        "confirmation_prompt": "Link NKB account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/link_bank",
+        "params": {"bank": "NKB"},
+        "success_prompt": "Account linked\nReceipt: {receipt_number}",
         "transitions": {
             "9": "nkb_bank",
             "0": "exit_node"
         }
     },
     "nkb_transfer_to": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer to NKB Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the recipient's account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN to NKB account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_bank",
+        "params": {"bank": "NKB"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "nkb_bank",
             "0": "exit_node"
         }
     },
     "nkb_transfer_from": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer from NKB Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your NKB account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN from NKB account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_from_bank",
+        "params": {"bank": "NKB"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "nkb_bank",
             "0": "exit_node"
@@ -210,32 +328,92 @@ config ={
         }
     },
     "azizi_link": {
-        "type": "single_input_action",
-        "prompt": "Enter bank account details to link:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your Azizi account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter your bank PIN:\n",
+                "input_key": "bank_pin",
+                "validation": {"regex": "^\\d{4}$"}
+            }
+        ],
+        "confirmation_prompt": "Link Azizi account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/link_bank",
+        "params": {"bank": "Azizi"},
+        "success_prompt": "Account linked\nReceipt: {receipt_number}",
         "transitions": {
             "9": "azizi_bank",
             "0": "exit_node"
         }
     },
     "azizi_transfer_to": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer to Azizi Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the recipient's account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN to Azizi account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_bank",
+        "params": {"bank": "Azizi"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "azizi_bank",
             "0": "exit_node"
         }
     },
     "azizi_transfer_from": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer from Azizi Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your Azizi account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN from Azizi account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_from_bank",
+        "params": {"bank": "Azizi"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "azizi_bank",
             "0": "exit_node"
         }
     },
     "other_bank": {
-        "type": "single_input_action",
-        "prompt": "Enter bank name for other banks:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the bank name:\n",
+                "input_key": "bank_name",
+                "validation": {"regex": "^[A-Za-z ]+$"}
+            },
+            {
+                "prompt": "Enter the account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            }
+        ],
+        "confirmation_prompt": "Link {bank_name} account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/link_other_bank",
+        "params": {},
+        "success_prompt": "Account linked\nReceipt: {receipt_number}",
         "transitions": {
             "9": "banks_menu",
             "0": "exit_node"
@@ -263,24 +441,69 @@ config ={
         }
     },
     "aub_link": {
-        "type": "single_input_action",
-        "prompt": "Enter bank account details to link:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your AUB account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter your bank PIN:\n",
+                "input_key": "bank_pin",
+                "validation": {"regex": "^\\d{4}$"}
+            }
+        ],
+        "confirmation_prompt": "Link AUB account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/link_bank",
+        "params": {"bank": "AUB"},
+        "success_prompt": "Account linked\nReceipt: {receipt_number}",
         "transitions": {
             "9": "aub_bank",
             "0": "exit_node"
         }
     },
     "aub_transfer_to": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer to AUB Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the recipient's account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN to AUB account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_bank",
+        "params": {"bank": "AUB"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "aub_bank",
             "0": "exit_node"
         }
     },
     "aub_transfer_from": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer from AUB Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your AUB account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN from AUB account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_from_bank",
+        "params": {"bank": "AUB"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "aub_bank",
             "0": "exit_node"
@@ -308,24 +531,69 @@ config ={
         }
     },
     "bma_link": {
-        "type": "single_input_action",
-        "prompt": "Enter bank account details to link:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your BMA account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter your bank PIN:\n",
+                "input_key": "bank_pin",
+                "validation": {"regex": "^\\d{4}$"}
+            }
+        ],
+        "confirmation_prompt": "Link BMA account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/link_bank",
+        "params": {"bank": "BMA"},
+        "success_prompt": "Account linked\nReceipt: {receipt_number}",
         "transitions": {
             "9": "bma_bank",
             "0": "exit_node"
         }
     },
     "bma_transfer_to": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer to BMA Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the recipient's account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN to BMA account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_bank",
+        "params": {"bank": "BMA"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "bma_bank",
             "0": "exit_node"
         }
     },
     "bma_transfer_from": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer from BMA Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your BMA account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN from BMA account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_from_bank",
+        "params": {"bank": "BMA"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "bma_bank",
             "0": "exit_node"
@@ -353,32 +621,92 @@ config ={
         }
     },
     "ghazanfar_link": {
-        "type": "single_input_action",
-        "prompt": "Enter bank account details to link:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your Ghazanfar account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter your bank PIN:\n",
+                "input_key": "bank_pin",
+                "validation": {"regex": "^\\d{4}$"}
+            }
+        ],
+        "confirmation_prompt": "Link Ghazanfar account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/link_bank",
+        "params": {"bank": "Ghazanfar"},
+        "success_prompt": "Account linked\nReceipt: {receipt_number}",
         "transitions": {
             "9": "ghazanfar_bank",
             "0": "exit_node"
         }
     },
     "ghazanfar_transfer_to": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer to Ghazanfar Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the recipient's account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN to Ghazanfar account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_bank",
+        "params": {"bank": "Ghazanfar"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "ghazanfar_bank",
             "0": "exit_node"
         }
     },
     "ghazanfar_transfer_from": {
-        "type": "single_input_action",
-        "prompt": "Enter amount to transfer from Ghazanfar Bank:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter your Ghazanfar account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to transfer (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Transfer {amount} AFN from Ghazanfar account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/transfer_from_bank",
+        "params": {"bank": "Ghazanfar"},
+        "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "ghazanfar_bank",
             "0": "exit_node"
         }
     },
     "payment_menu": {
-        "type": "single_input_action",
-        "prompt": "Enter the amount to be paid:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the payee's account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to be paid (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Pay {amount} AFN to account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/payment",
+        "params": {},
+        "success_prompt": "Payment completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "main_menu",
             "0": "exit_node"
@@ -396,16 +724,46 @@ config ={
         "on_invalid_input": {"target_menu": "bills_menu"}
     },
     "dabs_bill": {
-        "type": "single_input_action",
-        "prompt": "Enter DABS bill amount:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter DABS account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter bill amount (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 10}
+            }
+        ],
+        "confirmation_prompt": "Pay {amount} AFN for account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/pay_bill",
+        "params": {"provider": "DABS"},
+        "success_prompt": "Payment processed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "bills_menu",
             "0": "exit_node"
         }
     },
     "delight_bill": {
-        "type": "single_input_action",
-        "prompt": "Enter Delight bill amount:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter Delight account ID:\n",
+                "input_key": "account_id",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter bill amount (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 10}
+            }
+        ],
+        "confirmation_prompt": "Pay {amount} AFN for account {account_id}? 1: OK, 2: Cancel",
+        "action_url": "/api/pay_bill",
+        "params": {"provider": "Delight"},
+        "success_prompt": "Payment processed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "bills_menu",
             "0": "exit_node"
@@ -418,32 +776,55 @@ config ={
             {"key": "1", "target_menu": "topup_self"},
             {"key": "2", "target_menu": "topup_others"},
             {"key": "3", "target_menu": "bundles_menu"},
-            {"key": "nkb_bank9", "target_menu": "main_menu"},
+            {"key": "9", "target_menu": "main_menu"},
             {"key": "0", "target_menu": "exit_node"}
         ],
         "on_invalid_input": {"target_menu": "topup_menu"}
     },
     "topup_self": {
-        "type": "single_input_action",
-        "prompt": "Enter the amount to top-up:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the amount to top-up (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Top-up {amount} AFN for your account? 1: OK, 2: Cancel",
+        "action_url": "/api/topup",
+        "params": {"type": "self"},
+        "success_prompt": "Top-up completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "topup_menu",
             "0": "exit_node"
-        },
-        "action": "TelcoService.TopUpSelf"
+        }
     },
     "topup_others": {
-        "type": "single_input_action",
-        "prompt": "Enter the destination number you will top-up:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the destination number:\n",
+                "input_key": "phone_number",
+                "validation": {"regex": "^\\d{10}$"}
+            },
+            {
+                "prompt": "Enter the amount to top-up (AFN):\n",
+                "input_key": "amount",
+                "validation": {"type": "numeric", "min": 1}
+            }
+        ],
+        "confirmation_prompt": "Top-up {amount} AFN for {phone_number}? 1: OK, 2: Cancel",
+        "action_url": "/api/topup",
+        "params": {"type": "others"},
+        "success_prompt": "Top-up completed\nReceipt: {receipt_number}",
         "transitions": {
             "9": "topup_menu",
             "0": "exit_node"
-        },
-        "action": "TelcoService.TopUpOthers"
+        }
     },
     "bundles_menu": {
         "type": "menu_navigation",
-        "prompt": "1. Bundle from Self\n2. Bundle from others\n9. Back\n0. Exit\n",
+        "prompt": "1. Bundle for Self\n2. Bundle for Others\n9. Back\n0. Exit\n",
         "options": [
             {"key": "1", "target_menu": "self_bundle"},
             {"key": "2", "target_menu": "others_bundle"},
@@ -477,44 +858,76 @@ config ={
         "on_invalid_input": {"target_menu": "data_bundle"}
     },
     "data_280": {
-        "type": "single_input_action",
-        "prompt": "280 AFN: 2.5GB bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 280 AFN for 2.5GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 280 AFN: 2.5GB bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 0},
+        "success_prompt": "280 AFN: 2.5GB bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "DATA", "option": 0}
+        }
     },
     "data_450": {
-        "type": "single_input_action",
-        "prompt": "450 AFN: 6GB bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 450 AFN for 6GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 450 AFN: 6GB bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 1},
+        "success_prompt": "450 AFN: 6GB bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "DATA", "option": 1}
+        }
     },
     "data_670": {
-        "type": "single_input_action",
-        "prompt": "670 AFN: 10GB bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 670 AFN for 10GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 670 AFN: 10GB bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 2},
+        "success_prompt": "670 AFN: 10GB bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "DATA", "option": 2}
+        }
     },
     "data_1220": {
-        "type": "single_input_action",
-        "prompt": "1220 AFN: 22.2GB bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 1220 AFN for 22.2GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 1220 AFN: 22.2GB bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 3},
+        "success_prompt": "1220 AFN: 22.2GB bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "DATA", "option": 3}
+        }
     },
     "voice_bundle": {
         "type": "menu_navigation",
@@ -530,54 +943,95 @@ config ={
         "on_invalid_input": {"target_menu": "voice_bundle"}
     },
     "voice_50": {
-        "type": "single_input_action",
-        "prompt": "50 AFN: 200min bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 50 AFN for 200min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 50 AFN: 200min bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 0},
+        "success_prompt": "50 AFN: 200min bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "VOICE", "option": 0}
+        }
     },
     "voice_100": {
-        "type": "single_input_action",
-        "prompt": "100 AFN: 550min bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 100 AFN for 550min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 100 AFN: 550min bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 1},
+        "success_prompt": "100 AFN: 550min bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "VOICE", "option": 1}
+        }
     },
     "voice_200": {
-        "type": "single_input_action",
-        "prompt": "200 AFN: 1000min bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 200 AFN for 1000min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 200 AFN: 1000min bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 2},
+        "success_prompt": "200 AFN: 1000min bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "VOICE", "option": 2}
+        }
     },
     "voice_550": {
-        "type": "single_input_action",
-        "prompt": "550 AFN: 6600min bundle activated\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 550 AFN for 6600min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 550 AFN: 6600min bundle? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 3},
+        "success_prompt": "550 AFN: 6600min bundle activated\nReceipt: {receipt_number}",
         "transitions": {
             "9": "voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleSelf",
-        "params": {"bundle_type": "VOICE", "option": 3}
+        }
     },
     "others_bundle": {
-        "type": "single_input_action",
-        "prompt": "Enter the destination number you will buy bundle for:\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Enter the destination number:\n",
+                "input_key": "phone_number",
+                "validation": {"regex": "^\\d{10}$"}
+            }
+        ],
+        "confirmation_prompt": "Buy bundle for {phone_number}? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_others_bundle",
+        "params": {},
+        "success_prompt": "successfully purchased bundle for {phone_number}\nReceipt: {receipt_number}",
         "transitions": {
             "9": "bundles_menu",
             "0": "exit_node",
             "*": "others_bundle_type"
-        },
-        "action": "store_destination_number"
+        }
     },
     "others_bundle_type": {
         "type": "menu_navigation",
@@ -604,44 +1058,76 @@ config ={
         "on_invalid_input": {"target_menu": "others_data_bundle"}
     },
     "others_data_280": {
-        "type": "single_input_action",
-        "prompt": "280 AFN: 2.5GB bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 280 AFN for 2.5GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 280 AFN: 2.5GB bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 0, "phone_number": "<phone_number>"},
+        "success_prompt": "280 AFN: 2.5GB bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "DATA", "option": 0}
+        }
     },
     "others_data_450": {
-        "type": "single_input_action",
-        "prompt": "450 AFN: 6GB bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 450 AFN for 6GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 450 AFN: 6GB bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 1, "phone_number": "<phone_number>"},
+        "success_prompt": "450 AFN: 6GB bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "DATA", "option": 1}
+        }
     },
     "others_data_670": {
-        "type": "single_input_action",
-        "prompt": "670 AFN: 10GB bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 670 AFN for 10GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 670 AFN: 10GB bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 2, "phone_number": "<phone_number>"},
+        "success_prompt": "670 AFN: 10GB bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "DATA", "option": 2}
+        }
     },
     "others_data_1220": {
-        "type": "single_input_action",
-        "prompt": "1220 AFN: 22.2GB bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 1220 AFN for 22.2GB bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 1220 AFN: 22.2GB bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "DATA", "option": 3, "phone_number": "<phone_number>"},
+        "success_prompt": "1220 AFN: 22.2GB bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_data_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "DATA", "option": 3}
+        }
     },
     "others_voice_bundle": {
         "type": "menu_navigation",
@@ -657,44 +1143,76 @@ config ={
         "on_invalid_input": {"target_menu": "others_voice_bundle"}
     },
     "others_voice_50": {
-        "type": "single_input_action",
-        "prompt": "50 AFN: 200min bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 50 AFN for 200min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 50 AFN: 200min bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 0, "phone_number": "<phone_number>"},
+        "success_prompt": "50 AFN: 200min bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "VOICE", "option": 0}
+        }
     },
     "others_voice_100": {
-        "type": "single_input_action",
-        "prompt": "100 AFN: 550min bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 100 AFN for 550min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 100 AFN: 550min bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 1, "phone_number": "<phone_number>"},
+        "success_prompt": "100 AFN: 550min bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "VOICE", "option": 1}
+        }
     },
     "others_voice_200": {
-        "type": "single_input_action",
-        "prompt": "200 AFN: 1000min bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 200 AFN for 1000min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 200 AFN: 1000min bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 2, "phone_number": "<phone_number>"},
+        "success_prompt": "200 AFN: 1000min bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "VOICE", "option": 2}
+        }
     },
     "others_voice_550": {
-        "type": "single_input_action",
-        "prompt": "550 AFN: 6600min bundle activated for destination number\nPress 9 to go back or 0 to exit\n",
+        "type": "multi_input_action",
+        "steps": [
+            {
+                "prompt": "Confirm 550 AFN for 6600min bundle:\n",
+                "input_key": "confirm",
+                "validation": {"regex": "^[1-2]$"}
+            }
+        ],
+        "confirmation_prompt": "Purchase 550 AFN: 6600min bundle for destination number? 1: OK, 2: Cancel",
+        "action_url": "/api/buy_bundle",
+        "params": {"bundle_type": "VOICE", "option": 3, "phone_number": "<phone_number>"},
+        "success_prompt": "550 AFN: 6600min bundle activated for destination number\nReceipt: {receipt_number}",
         "transitions": {
             "9": "others_voice_bundle",
             "0": "exit_node"
-        },
-        "action": "TelcoService.BuyBundleOthers",
-        "params": {"bundle_type": "VOICE", "option": 3}
+        }
     },
     "approvals_menu": {
         "type": "single_input_action",

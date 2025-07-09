@@ -1,213 +1,299 @@
-import hashlib
-import os
-import json
+import requests
 import logging
+import json
+import hashlib
+import hmac
+import threading
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Tuple
+from typing import Tuple, Optional, Dict
+
+# Thread-safe token manager
+class AuthTokenManager:
+    """Thread-safe manager for authentication tokens"""
+    _instance = None
+    _lock = threading.Lock()
+    _token_lock = threading.Lock()
+    
+    def __new__(cls):
+        """Singleton pattern implementation"""
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._token = None
+        return cls._instance
+    
+    def set_token(self, token: str):
+        """Set the current authentication token"""
+        with self._token_lock:
+            self._token = token
+    
+    def get_token(self) -> Optional[str]:
+        """Get the current authentication token"""
+        with self._token_lock:
+            return self._token
+    
+    def clear_token(self):
+        """Clear the current authentication token"""
+        with self._token_lock:
+            self._token = None
+
+# Global token manager instance
+token_manager = AuthTokenManager()
 
 class PinAuthService:
-    """Secure PIN authentication and management service"""
+    """Secure PIN authentication service with token management"""
     
-    def __init__(self, storage_path: str = "pin_storage.json", 
+    def __init__(self, 
+                 verify_url: str,
+                 api_key: str,
                  lockout_threshold: int = 3, 
-                 lockout_duration: int = 5):
+                 lockout_duration: int = 5,
+                 timeout: int = 5):
         """
+        Initialize PIN authentication service
+        
         Args:
-            storage_path: Path to PIN storage file
-            lockout_threshold: Number of failed attempts before lockout
-            lockout_duration: Lockout duration in minutes
+            verify_url: URL for PIN verification API
+            api_key: Secret key for API authentication
+            lockout_threshold: Failed attempts before lockout (default: 3)
+            lockout_duration: Lockout duration in minutes (default: 5)
+            timeout: API timeout in seconds (default: 5)
         """
-        self.storage_path = storage_path
+        self.verify_url = verify_url
+        self.api_key = api_key
         self.lockout_threshold = lockout_threshold
         self.lockout_duration = timedelta(minutes=lockout_duration)
+        self.timeout = timeout
         self.logger = logging.getLogger(__name__)
-        self.pin_data = self._load_pin_data()
         self.failed_attempts = {}
+        self.logger.info("PinAuthService initialized with URL: %s", verify_url)
     
-    def _load_pin_data(self) -> Dict[str, dict]:
-        """Load PIN data from storage file"""
-        if not os.path.exists(self.storage_path):
-            return {}
-        
-        try:
-            with open(self.storage_path, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            self.logger.error(f"Failed to load PIN data: {str(e)}")
-            return {}
-    
-    def _save_pin_data(self):
-        """Save PIN data to storage file"""
-        try:
-            with open(self.storage_path, 'w') as f:
-                json.dump(self.pin_data, f, indent=2)
-        except Exception as e:
-            self.logger.error(f"Failed to save PIN data: {str(e)}")
-    
-    def _generate_salt(self) -> bytes:
-        """Generate cryptographically secure salt"""
-        return os.urandom(16)
-    
-    def _hash_pin(self, pin: str, salt: bytes) -> str:
-        """Generate secure PIN hash using PBKDF2-HMAC-SHA256"""
-        return hashlib.pbkdf2_hmac(
-            'sha256',
-            pin.encode('utf-8'),
-            salt,
-            100000  # 100,000 iterations
-        ).hex()
-    
-    def is_account_locked(self, msisdn: str) -> Tuple[bool, Optional[str]]:
-        """Check if account is locked due to failed attempts"""
-        return False, None  
-        # if msisdn not in self.failed_attempts:
-        #     return False, None
-        
-        # attempts, last_attempt = self.failed_attempts[msisdn]
-        
-        # if attempts < self.lockout_threshold:
-        #     return False, None
-        
-        # time_since_last = datetime.now() - last_attempt
-        # if time_since_last < self.lockout_duration:
-        #     remaining = self.lockout_duration - time_since_last
-        #     return True, f"Account locked. Try again in {int(remaining.total_seconds() // 60)} minutes"
-        
-        # # Lockout period expired
-        # del self.failed_attempts[msisdn]
-        # return False, None
-    
-    def verify_pin(self, msisdn: str, pin: str) -> bool:
+    def _generate_api_signature(self, payload: Dict) -> str:
         """
-        Verify PIN for a given MSISDN
+        Generate HMAC signature for API request
+        
+        Args:
+            payload: Request payload to sign
+            
+        Returns:
+            str: HMAC-SHA256 signature
+        """
+        sorted_payload = json.dumps(payload, sort_keys=True)
+        return hmac.new(
+            self.api_key.encode('utf-8'),
+            sorted_payload.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+    
+    def verify_pin(self, msisdn: str, pin: str) -> Tuple[bool, str]:
+        """
+        Verify PIN by calling web service and store token
         
         Args:
             msisdn: User's phone number
-            pin: 6-digit PIN to verify
+            pin: PIN to verify
             
         Returns:
-            bool: True if PIN is valid
+            Tuple: (success: bool, message: str)
         """
         # Check lockout status
         locked, message = self.is_account_locked(msisdn)
-        if not message:
-            print(f"Mock Account not locked for {msisdn}")
-            return True
-        
         if locked:
-            self.logger.warning(f"Account locked for {msisdn}")
-            return False
+            self.logger.warning("Account locked for %s: %s", msisdn, message)
+            return False, message
         
         # Validate PIN format
-        if len(pin) != 6 or not pin.isdigit():
-            return False
+        if not pin or len(pin) != 6 or not pin.isdigit():
+            return False, "Invalid PIN format"
         
-        # Check if PIN exists for user
-        if msisdn not in self.pin_data:
-            self.logger.warning(f"No PIN record for {msisdn}")
-            return False
+        # Prepare API request
+        payload = {
+            "msisdn": msisdn,
+            "pin": pin,
+            "timestamp": datetime.utcnow().isoformat()
+        }
         
-        # Retrieve stored hash and salt
-        stored = self.pin_data[msisdn]
-        salt = bytes.fromhex(stored['salt'])
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Signature": self._generate_api_signature(payload)
+        }
         
-        # Compute hash for provided PIN
-        pin_hash = self._hash_pin(pin, salt)
-        
-        # Constant-time comparison to prevent timing attacks
-        valid = pin_hash == stored['pin_hash']
-        
-        # Track failed attempts
-        if not valid:
-            self._record_failed_attempt(msisdn)
-        
-        return valid
-    
-    def _record_failed_attempt(self, msisdn: str):
-        """Track failed PIN attempts"""
-        if msisdn not in self.failed_attempts:
-            self.failed_attempts[msisdn] = [1, datetime.now()]
-        else:
-            attempts, last_time = self.failed_attempts[msisdn]
+        try:
+            # Call verification API
+            self.logger.debug("Calling PIN verification API: %s", self.verify_url)
+            response = requests.post(
+                self.verify_url,
+                json=payload,
+                headers=headers,
+                timeout=self.timeout
+            )
             
-            # Reset if last attempt was long ago
-            if datetime.now() - last_time > timedelta(minutes=10):
-                self.failed_attempts[msisdn] = [1, datetime.now()]
+            # Handle successful response
+            if response.status_code == 200:
+                # Extract token from Authorization header
+                auth_header = response.headers.get("Authorization", "")
+                if auth_header.startswith("Bearer "):
+                    token = auth_header.split("Bearer ")[1].strip()
+                    token_manager.set_token(token)
+                    self.logger.info("Token stored for %s", msisdn)
+                
+                # Reset failed attempts on success
+                if msisdn in self.failed_attempts:
+                    del self.failed_attempts[msisdn]
+                
+                return True, "Authentication successful"
+            
+            # Handle specific error cases
+            elif response.status_code == 400:
+                error = "Invalid request format"
+            elif response.status_code == 401:
+                self._record_failed_attempt(msisdn)
+                error = "Invalid PIN"
+            elif response.status_code == 403:
+                self._record_failed_attempt(msisdn, lock=True)
+                error = "Account locked"
+            elif response.status_code == 404:
+                error = "User not found"
             else:
-                self.failed_attempts[msisdn] = [attempts + 1, datetime.now()]
+                error = f"Unexpected status: {response.status_code}"
+            
+            self.logger.warning("PIN verification failed for %s: %s", msisdn, error)
+            return False, error
+        
+        except requests.exceptions.Timeout:
+            error = "Verification service timed out"
+            self.logger.error(error)
+            return False, error
+        except requests.exceptions.RequestException as e:
+            error = f"API call failed: {str(e)}"
+            self.logger.error(error)
+            return False, "Service unavailable"
     
-    def set_pin(self, msisdn: str, pin: str) -> bool:
+    def is_account_locked(self, msisdn: str) -> Tuple[bool, str]:
         """
-        Set or change PIN for a user
+        Check if account is locked due to failed attempts
         
         Args:
             msisdn: User's phone number
-            pin: New 6-digit PIN
             
         Returns:
-            bool: True if PIN was successfully set
+            Tuple: (is_locked: bool, message: str)
         """
-        # Validate PIN format
-        if len(pin) != 6 or not pin.isdigit():
-            return False
+        if msisdn not in self.failed_attempts:
+            return False, ""
         
-        # Generate new salt and hash
-        salt = self._generate_salt()
-        pin_hash = self._hash_pin(pin, salt)
+        attempts, lock_time = self.failed_attempts[msisdn]
         
-        # Store securely
-        self.pin_data[msisdn] = {
-            'pin_hash': pin_hash,
-            'salt': salt.hex(),
-            'created_at': datetime.now().isoformat()
-        }
+        # Check if still in lockout period
+        if datetime.now() - lock_time < self.lockout_duration:
+            remaining_min = (lock_time + self.lockout_duration - datetime.now()).seconds // 60
+            message = f"Account locked. Try again in {remaining_min} minutes"
+            return True, message
         
-        # Clear any failed attempts
-        if msisdn in self.failed_attempts:
+        # Clear expired lockout
+        if attempts >= self.lockout_threshold:
             del self.failed_attempts[msisdn]
+            self.logger.info("Lock expired for %s", msisdn)
         
-        # Save to persistent storage
-        self._save_pin_data()
-        return True
+        return False, ""
     
-    def initialize_pin(self, msisdn: str) -> bool:
+    def _record_failed_attempt(self, msisdn: str, lock: bool = False):
         """
-        Initialize a default PIN for a new user
+        Track failed PIN attempts and lock if threshold reached
+        
+        Args:
+            msisdn: User's phone number
+            lock: Whether to immediately lock account
         """
-        # Default PIN is last 6 digits of MSISDN
-        default_pin = msisdn[-6:]
-        return self.set_pin(msisdn, default_pin)
+        now = datetime.now()
+        
+        if msisdn not in self.failed_attempts:
+            self.failed_attempts[msisdn] = [1, now]
+            return
+        
+        attempts, last_time = self.failed_attempts[msisdn]
+        
+        # Reset if last attempt was long ago
+        if now - last_time > timedelta(minutes=10):
+            self.failed_attempts[msisdn] = [1, now]
+        else:
+            new_attempts = attempts + 1
+            self.failed_attempts[msisdn] = [new_attempts, now]
+            
+            # Lock account if threshold reached or forced
+            if lock or new_attempts >= self.lockout_threshold:
+                self.logger.warning("Account locked for %s after %d failed attempts", 
+                                   msisdn, new_attempts)
+                # Update lock time
+                self.failed_attempts[msisdn][1] = now
     
-    def reset_failed_attempts(self, msisdn: str):
-        """Reset failed attempt counter for a user"""
-        if msisdn in self.failed_attempts:
-            del self.failed_attempts[msisdn]
+    def get_current_token(self) -> Optional[str]:
+        """
+        Get the current authentication token
+        
+        Returns:
+            str: Current bearer token or None
+        """
+        return token_manager.get_token()
+    
+    def clear_current_token(self):
+        """
+        Clear the current authentication token
+        """
+        token_manager.clear_token()
+        self.logger.info("Authentication token cleared")
 
-
-# Test the PIN service
+# Example usage
 if __name__ == "__main__":
     # Configure logging
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     
     # Create service instance
-    auth_service = PinAuthService()
+    auth_service = PinAuthService(
+        verify_url="https://auth.example.com/verify-pin",
+        api_key="your-secret-api-key",
+        lockout_threshold=3,
+        lockout_duration=2  # 2 minutes for testing
+    )
     
-    # Test MSISDN
+    # Test PIN verification
     test_msisdn = "93701234567"
     
-    # Initialize PIN
-    print("Setting initial PIN...")
-    auth_service.set_pin(test_msisdn, "123456")
+    print("===== TEST 1: Valid PIN =====")
+    success, message = auth_service.verify_pin(test_msisdn, "123456")
+    print(f"Success: {success}, Message: {message}")
+    print(f"Token: {token_manager.get_token()}")
     
-    # Test verification
-    print("Verifying correct PIN:", auth_service.verify_pin(test_msisdn, "123456"))
-    print("Verifying wrong PIN:", auth_service.verify_pin(test_msisdn, "000000"))
+    print("\n===== TEST 2: Invalid PIN =====")
+    success, message = auth_service.verify_pin(test_msisdn, "000000")
+    print(f"Success: {success}, Message: {message}")
     
-    # Test lockout
-    print("\nTesting lockout:")
-    for _ in range(4):
-        print(f"Attempt {_+1}:", auth_service.verify_pin(test_msisdn, "wrong"))
+    print("\n===== TEST 3: Lockout Test =====")
+    for i in range(3):
+        success, message = auth_service.verify_pin(test_msisdn, "wrong")
+        print(f"Attempt {i+1}: Success={success}, Message={message}")
     
-    # Check lockout status
+    print("\n===== TEST 4: Locked Account =====")
+    success, message = auth_service.verify_pin(test_msisdn, "123456")
+    print(f"Success: {success}, Message: {message}")
+    
+    print("\n===== TEST 5: Wait for Lock Expiry =====")
+    print("Waiting 2 minutes for lock to expire...")
+    # Simulate lock expiration by modifying time
+    if test_msisdn in auth_service.failed_attempts:
+        auth_service.failed_attempts[test_msisdn][1] = datetime.now() - timedelta(minutes=3)
+    
     locked, message = auth_service.is_account_locked(test_msisdn)
-    print(f"Account locked: {locked} ({message})")
+    print(f"Account locked: {locked}, Message: {message}")
+    
+    print("\n===== TEST 6: Valid PIN After Lock =====")
+    success, message = auth_service.verify_pin(test_msisdn, "123456")
+    print(f"Success: {success}, Message: {message}")
+    print(f"Token: {token_manager.get_token()}")
+    
+    print("\n===== TEST 7: Clear Token =====")
+    auth_service.clear_current_token()
+    print(f"Token after clear: {token_manager.get_token()}")
