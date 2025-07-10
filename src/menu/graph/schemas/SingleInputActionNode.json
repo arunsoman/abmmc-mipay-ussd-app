@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft/2020-12/schema",
+  "$schema_version": "1.0.0",
+  "type": "object",
+  "description": "Configuration for a SingleInputActionNode, used for actions requiring a single user input.",
+  "required": ["type", "prompt", "input_key", "validation", "confirmation_prompt", "action_url", "success_prompt", "transitions"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["single_input_action"],
+      "description": "Node type identifier."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Prompt for user input (e.g., 'Enter your PIN to check balance:')."
+    },
+    "input_key": {
+      "type": "string",
+      "description": "Key for storing user input in the payload (e.g., 'pin')."
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation rules for user input.",
+      "oneOf": [
+        {
+          "properties": {
+            "type": {"const": "numeric"},
+            "min": {"type": "number", "description": "Minimum value for numeric input."},
+            "max": {"type": "number", "description": "Maximum value for numeric input."}
+          },
+          "required": ["type"]
+        },
+        {
+          "properties": {
+            "regex": {"type": "string", "description": "Regex pattern for input validation."}
+          },
+          "required": ["regex"]
+        },
+        {
+          "properties": {
+            "options": {
+              "type": "array",
+              "description": "List of valid options (strings, numbers, or objects with 'id', 'name').",
+              "items": {
+                "oneOf": [
+                  {"type": "string"},
+                  {"type": "number"},
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"},
+                      "name": {"type": "string"}
+                    },
+                    "required": ["id", "name"]
+                  }
+                ]
+              }
+            }
+          },
+          "required": ["options"]
+        }
+      ]
+    },
+    "confirmation_prompt": {
+      "type": "string",
+      "description": "Prompt for confirming the input, with placeholder (e.g., 'Check balance for {pin}? 1: OK, 2: Cancel')."
+    },
+    "action_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL for HTTP POST after confirmation. Payload: {'msisdn': string, input_key: input, ...params}. Expects {'success': boolean, 'status': string, ...}."
+    },
+    "params": {
+      "type": "object",
+      "description": "Additional key-value pairs for action_url payload. Values with '<key>' are replaced with input."
+    },
+    "success_prompt": {
+      "type": "string",
+      "description": "Prompt displayed after successful action, with placeholders (e.g., '{status}', '{balance}')."
+    },
+    "transitions": {
+      "type": "object",
+      "patternProperties": {
+        "^[0-9]$": {
+          "type": "string",
+          "description": "Node ID to transition to for the given input key (e.g., '9': 'main_menu', '0': 'exit_node')."
+        }
+      },
+      "required": ["9", "0"],
+      "description": "Mapping of user inputs to target node IDs after action completion. Must include '9' and '0'."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "description": "Configuration for a ValidationGateNode, used for authenticating users (e.g., PIN validation).",
+  "required": ["type", "prompt", "max_attempts", "on_success", "on_failure"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["validation_gate"],
+      "description": "Node type identifier."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Prompt displayed to the user for input (e.g., 'Enter Your PIN:')."
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum number of validation attempts allowed before transitioning to on_failure."
+    },
+    "validation_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL for HTTP POST validation of user input. Payload: {'password': user_input, 'phone': msisdn}. Expects response with 'Authorization' header for token."
+    },
+    "valid_pin": {
+      "type": "string",
+      "description": "Optional fallback PIN for validation if validation_url is not provided. Used with AuthService."
+    },
+    "on_success": {
+      "type": "object",
+      "required": ["target_menu"],
+      "properties": {
+        "target_menu": {
+          "type": "string",
+          "description": "Node ID to transition to on successful validation."
+        }
+      },
+      "description": "Transition configuration for successful validation."
+    },
+    "on_failure": {
+      "type": "object",
+      "required": ["target_menu"],
+      "properties": {
+        "target_menu": {
+          "type": "string",
+          "description": "Node ID to transition to after max_attempts are exceeded."
+        }
+      },
+      "description": "Transition configuration for failed validation."
+    }
+  },
+  "additionalProperties": false
+}

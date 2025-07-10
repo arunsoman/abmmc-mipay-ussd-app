@@ -194,7 +194,7 @@ class ValidationGateNode(MenuNode):
         if self.validation_url:
             # If validation_url is provided, use it to validate the input
             try:
-                payload = {"pin": user_input, "msisdn": self.msisdn}
+                payload = {"passsword": user_input, "phone": self.msisdn}
                 response = requests.post(self.validation_url, json=payload, timeout=5)
                 if response.status_code == 200:
                     token = response.headers.get("Authorization")
@@ -206,10 +206,13 @@ class ValidationGateNode(MenuNode):
                         return "success"
                     else:
                         self.validation_error = "Validation failed: No Authorization header found"
+                        return "failure"
                 else:
                     self.validation_error = f"Validation failed: Server returned {response.status_code}"
+                    return "failure"
             except requests.RequestException as e:
                 self.validation_error = f"Validation error: {str(e)}"
+                return "failure"
         else:
             # Fallback to the existing AuthService validation
             token = self.service.validate_pin(self.msisdn, user_input)
@@ -630,7 +633,7 @@ def load_Menu_engine(msisdn: str, config: Dict[str, Any]) -> MenuEngine:
             continue
         
         node: MenuNode
-        if node_type == "validation_gate":
+        if node_type == "validation_`gate`":
             node = ValidationGateNode(node_id, node_config)
         elif node_type == "menu_navigation":
             node = MenuNavigationNode(node_id, node_config)

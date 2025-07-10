@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 import threading
 import time
 from datetime import datetime, timedelta
-from src.menu.graph.all_node import MenuEngine, load_Menu_engine
+from src.menu.graph.nodes.menu_engine import MenuEngine, load_Menu_engine
 
 class MenuSessionManager:
     def __init__(self, session_timeout_minutes: int = 500000):
@@ -45,7 +45,7 @@ class MenuSessionManager:
             else:
                 if config is None:
                     raise ValueError("Config required for new session")
-                engine = load_Menu_engine(msisdn, config)
+                engine = load_Menu_engine(msisdn, config, "")
                 self.sessions[msisdn] = {
                     'engine': engine,
                     'config': config,

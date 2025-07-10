@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "description": "Configuration for an ExitNode, used to terminate the session.",
+  "required": ["type", "prompt"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["exit"],
+      "description": "Node type identifier."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Message displayed when the session ends (e.g., 'Thank you for using our service')."
+    }
+  },
+  "additionalProperties": false
+}

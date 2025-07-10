@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft/2020-12/schema",
+  "$schema_version": "1.0.0",
+  "type": "object",
+  "description": "Configuration for a MenuNavigationNode, used for main menu or sub-menu navigation, linking to single_input_action, multi_input_action, menu_navigation, or exit nodes.",
+  "required": ["type", "prompt", "options", "transitions"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["menu_navigation"],
+      "description": "Node type identifier."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Prompt for the menu (e.g., 'Main Menu: Select an option:')."
+    },
+    "options": {
+      "type": "array",
+      "description": "List of menu options with keys and target nodes (single_input_action, multi_input_action, menu_navigation, or exit).",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "target_menu"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[1-8]$",
+            "description": "Input key for the option (1-8 to avoid conflict with 9 and 0)."
+          },
+          "label": {
+            "type": "string",
+            "description": "Display label for the option (e.g., 'Check Balance')."
+          },
+          "target_menu": {
+            "type": "string",
+            "description": "Node ID to transition to (e.g., single_input_action, multi_input_action, menu_navigation, or exit)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "transitions": {
+      "type": "object",
+      "patternProperties": {
+        "^[0-9]$": {
+          "type": "string",
+          "description": "Node ID to transition to for navigation (e.g., '9': 'main_menu', '0': 'exit_node')."
+        }
+      },
+      "required": ["9", "0"],
+      "description": "Mapping of navigation inputs to target node IDs. Must include '9' (back) and '0' (exit)."
+    }
+  },
+  "additionalProperties": false
+}
