@@ -7,7 +7,7 @@ from src.menu.graph.nodes.main_menu import MenuNavigationNode
 from src.menu.graph.nodes.single_input_action_node import SingleInputActionNode
 from src.menu.graph.nodes.exit_node import ExitNode
 from src.menu.graph.nodes.msisdn_node import Msisdn_Node
-from src.menu.graph.schemas.schema_utils import load_schema
+from src.menu.graph.schemas.schema_utils import get_validated_config
 import json
 
 class MenuEngine:
@@ -40,51 +40,13 @@ class MenuEngine:
             return self.current_node.getNext()
         return "Session ended"
 
-def load_config_from_source(source: str) -> Dict[str, Any]:
-    """Load configuration from various sources (Python module, JSON file, or URL)."""
-    import importlib.util
-    import requests
-    
-    if source.endswith(".py"):
-        spec = importlib.util.spec_from_file_location("config_module", source)
-        if spec is not None and spec.loader is not None:
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            return getattr(module, "config", {})
-    
-    elif source.endswith(".json"):
-        with open(source, 'r') as f:
-            return json.load(f)
-    
-    elif source.startswith(("http://", "https://")):
-        try:
-            response = requests.get(source, timeout=5)
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            raise ValueError(f"Failed to load config from URL {source}: {str(e)}")
-    
-    raise ValueError(f"Unsupported config source: {source}")
-
-def load_Menu_engine(msisdn: str, config: Dict[str, Any], config_source: str) -> MenuEngine:
-    """Load menu engine with configuration, validating against schemas."""
-    if config_source and not config:
-        config = load_config_from_source(config_source)
-    
-    if not config:
-        raise ValueError("No configuration provided")
-    
+def load_Menu_engine(msisdn: str, config: Dict[str, Any] = None, config_source: str = "") -> MenuEngine:
+    """Load menu engine with configuration, using cached validated config."""
+    config = get_validated_config(config_source, config)
     engine = MenuEngine()
     for node_id, node_config in config.items():
-        try:
-            validate_node_config(node_id, node_config)
-        except ValueError as e:
-            print(f"Skipping node {node_id}: {str(e)}")
-            continue
-        
-        node_config = node_config.copy()
+        node_config = node_config.copy()  # Create a copy to avoid modifying the cached config
         node_config.update({"msisdn": msisdn})
-        
         node_type = node_config.get("type")
         node: MenuNode
         if node_type == "multi_input_action":
@@ -100,7 +62,7 @@ def load_Menu_engine(msisdn: str, config: Dict[str, Any], config_source: str) ->
         elif node_type == "cache_post":
             node = Msisdn_Node(node_id, node_config)
         else:
-            raise ValueError(f"Unknown node type: {node_type}")
+            continue  # Skip invalid node types (already validated, so this should not happen)
             
         engine.add_node(node)
     
@@ -114,7 +76,6 @@ def load_Menu_engine(msisdn: str, config: Dict[str, Any], config_source: str) ->
             for key, target in node_config["transitions"].items():
                 node.add_transition(key, target)
         
-        # Add on_success and on_failure transitions for validation_gate nodes
         if node_config.get("type") == "validation_gate":
             if "on_success" in node_config and isinstance(node_config["on_success"], dict) and "target_menu" in node_config["on_success"]:
                 node.add_transition("success", node_config["on_success"]["target_menu"])

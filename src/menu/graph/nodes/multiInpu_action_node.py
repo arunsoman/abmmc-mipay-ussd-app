@@ -2,7 +2,6 @@ from typing import Dict, Any, List
 from src.menu.graph.nodes.node_abc import MenuNode
 import re
 import requests
-from src.menu.graph.schemas.schema_utils import validate_node_config
 from src.menu.graph.nodes.global_share import service_config
 
 class MultiInputActionNode(MenuNode):
