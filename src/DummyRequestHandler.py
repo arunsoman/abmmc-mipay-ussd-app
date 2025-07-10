@@ -98,7 +98,7 @@ def signal_handler(sig, frame):
     print('\nKeyboard interrupt received, shutting down the server.')
     sys.exit(0)
 
-def run_server(port=8000):
+def run_server(port=8080):
     # Set up signal handler for Ctrl+C
     signal.signal(signal.SIGINT, signal_handler)
     

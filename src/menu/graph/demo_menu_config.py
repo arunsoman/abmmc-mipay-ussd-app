@@ -4,7 +4,7 @@ config = {
         "prompt": "Enter Your My Money Pin:\n",
         "valid_pin": "123456",
         "max_attempts": 3,
-        "validation_url": "http://localhost:8000/validate",
+        "validation_url": "http://localhost:8080/ussd/customer/USSDlogin",
         "on_success": {"target_menu": "main_menu"},
         "on_failure": {"target_menu": "exit_node"}
     },
@@ -39,33 +39,19 @@ config = {
             "0": "exit_node"
         }
     },
-     "balance_check": {
+    "balance_check": {
         "type": "cache_post",
-        "prompt": "Our balance is {balance} AFN\nStatus: {status}\nPress 9 to go back, 0 to exit",
+        "prompt": "Your balance is {balance} AFN\nStatus: {status}\nPress 9 to go back, 0 to exit",
         "cache_params": {
             "auth_token": "token",
             "msisdn": "phone_number"
         },
-        "action_url": "http://localhost:8000/check_token",
+        "action_url": "http://localhost:8080/ts/api/transaction-services/CurrentBalance",
         "transitions": {
-            "9": "main_menu",
+            "9": "my_money_menu",
             "0": "exit_node"
         }
     },
-    # "balance_check": {
-    #     "type": "single_input_action",
-    #     "prompt": "Enter your PIN to check balance:",
-    #     "input_key": "pin",
-    #     "validation": {"regex": "^\\d{6}$"},
-    #     "confirmation_prompt": "Check balance? 1: OK, 2: Cancel",
-    #     "action_url": "http://localhost:8000/api/balance",
-    #     "params": {},
-    #     "success_prompt": "Your balance is {balance} AFN\nStatus: {status}",
-    #     "transitions": {
-    #         "9": "my_money_menu",
-    #         "0": "exit_node"
-    #     }
-    # },
     "change_pin": {
         "type": "multi_input_action",
         "steps": [
@@ -86,7 +72,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Change PIN to {new_pin}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/change_pin",
+        "action_url": "http://localhost:8080/api/pwd/update",
         "params": {},
         "success_prompt": "PIN changed successfully\nReceipt: {receipt_number}",
         "transitions": {
@@ -100,7 +86,7 @@ config = {
         "input_key": "pin",
         "validation": {"regex": "^\\d{6}$"},
         "confirmation_prompt": "View transaction history? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/transactions",
+        "action_url": "http://localhost:8080/ts/api/transaction-services/getFilteredHistory",
         "params": {},
         "success_prompt": "Transaction History: {transactions}\nStatus: {status}",
         "transitions": {
@@ -123,7 +109,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Transfer {amount} AFN to {phone_number}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/transfer",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {},
         "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
@@ -541,7 +527,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Transfer {amount} AFN to AUB account {account_id}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/transfer_bank",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"bank": "AUB"},
         "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
@@ -564,7 +550,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Transfer {amount} AFN from AUB account {account_id}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/transfer_from_bank",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"bank": "AUB"},
         "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
@@ -735,7 +721,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Transfer {amount} AFN to Ghazanfar account {account_id}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/transfer_bank",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"bank": "Ghazanfar"},
         "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
@@ -758,7 +744,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Transfer {amount} AFN from Ghazanfar account {account_id}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/transfer_from_bank",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"bank": "Ghazanfar"},
         "success_prompt": "Transfer completed\nReceipt: {receipt_number}",
         "transitions": {
@@ -816,7 +802,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Pay {amount} AFN for account {account_id}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/pay_bill",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"provider": "DABS"},
         "success_prompt": "Payment processed\nReceipt: {receipt_number}",
         "transitions": {
@@ -870,7 +856,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Top-up {amount} AFN for your account? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/topup",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"type": "self"},
         "success_prompt": "Top-up completed\nReceipt: {receipt_number}",
         "transitions": {
@@ -893,7 +879,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Top-up {amount} AFN for {phone_number}? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/topup",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"type": "others"},
         "success_prompt": "Top-up completed\nReceipt: {receipt_number}",
         "transitions": {
@@ -949,7 +935,7 @@ config = {
             }
         ],
         "confirmation_prompt": "Purchase 280 AFN: 2.5GB bundle? 1: OK, 2: Cancel",
-        "action_url": "http://localhost:8000/api/buy_bundle",
+        "action_url": "http://localhost:8000/api/tms/router/basic",
         "params": {"bundle_type": "DATA", "option": 0},
         "success_prompt": "280 AFN: 2.5GB bundle activated\nReceipt: {receipt_number}",
         "transitions": {

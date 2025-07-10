@@ -12,7 +12,7 @@ schema_utils_SCHEMA_REGISTRY = {
     "single_input_action": "schemas/SingleInputActionNode.json",
     "menu_navigation": "schemas/MenuNavigationNode.json",
     "validation_gate": "schemas/ValidationGateNode.json",
-    "msisdn_node":"schemas/msisdn_menu.json"
+    "cache_post":"schemas/msisdn_menu.json"
 }
 
 # Cache for loaded schemas

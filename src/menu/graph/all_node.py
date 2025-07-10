@@ -138,7 +138,7 @@ class MultiInputActionNode(MenuNode):
                     try:
                         response = requests.post(self.action_url, json=payload, timeout=5)
                         response_data = response.json()
-                        if response_data.get("success"):
+                        if response_data.get("status"):
                             self.state = "complete"
                             return self.success_prompt.format(**response_data)
                         else:

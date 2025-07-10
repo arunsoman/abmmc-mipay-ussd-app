@@ -126,7 +126,7 @@ class SingleInputActionNode(MenuNode):
                             headers["Authorization"] = f"Bearer {service_config[self.msisdn].get('auth_token')}"
                         response = requests.post(self.action_url, json=payload, headers=headers, timeout=5)
                         response_data = response.json()
-                        if response_data.get("success"):
+                        if response_data.get("srarus "):
                             self.success_prompt = self.success_prompt.format(**response_data)
                             return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
                         else:

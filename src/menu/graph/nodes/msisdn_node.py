@@ -9,7 +9,7 @@ class Msisdn_Node(MenuNode):
         super().__init__(node_id, config)
         self.prompt = config.get("prompt", "Response: {response}\nPress 9 to go back, 0 to exit")
         self.cache_params = config.get("cache_params", {})
-        self.action_url = config.get("action_url")
+        self.action_url = config.get("action_url", "no url cofiguerd for Msisdn_Node ")
         self.valid_keys = {"9", "0"}
         self.state = "initial"  # initial -> complete
         self.response_data = None

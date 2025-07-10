@@ -7,7 +7,7 @@
   "properties": {
     "type": {
       "type": "string",
-      "enum": ["msisdn_post"],
+      "enum": ["cache_post"],
       "description": "Node type identifier."
     },
     "prompt": {

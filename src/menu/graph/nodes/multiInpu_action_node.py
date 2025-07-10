@@ -5,7 +5,6 @@ import requests
 from src.menu.graph.schemas.schema_utils import validate_node_config
 from src.menu.graph.nodes.global_share import service_config
 
-
 class MultiInputActionNode(MenuNode):
     """Node for multi-step input collection, e.g., wallet-to-wallet transfer."""
     def __init__(self, node_id: str, config: Dict[str, Any]):
@@ -33,7 +32,7 @@ class MultiInputActionNode(MenuNode):
                     prompt = prompt.replace(f"{{{key}}}", str(value.get("name", value)))
                 else:
                     prompt = prompt.replace(f"{{{key}}}", str(value))
-            return f"{prompt}\n"
+            return f"{prompt}\n1: OK, 2: Cancel"
         elif self.state == "complete":
             return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
         return "Service unavailable"
@@ -73,6 +72,11 @@ class MultiInputActionNode(MenuNode):
             elif "regex" in validation:
                 if re.match(validation["regex"], user_input):
                     self.inputs[input_key] = user_input
+                    # For change_pin, ensure confirm_pin matches new_pin
+                    if self.node_id == "change_pin" and input_key == "confirm_pin":
+                        if self.inputs.get("new_pin") != user_input:
+                            self.validation_error = "Confirmation PIN does not match new PIN"
+                            return ""
                     return "valid"
                 self.validation_error = "Invalid input format"
                 return ""
@@ -108,6 +112,7 @@ class MultiInputActionNode(MenuNode):
 
     def handleUserInput(self, user_input: str) -> str:
         """Process user input, update state, and return the next prompt."""
+        print(f"DEBUG: state={self.state}, current_step={self.current_step}, input={user_input}")  # Debug
         validation_result = self.validate(user_input)
         
         if self.state == "input" and validation_result == "valid":
@@ -139,7 +144,7 @@ class MultiInputActionNode(MenuNode):
                             headers["Authorization"] = f"Bearer {service_config[self.msisdn].get('auth_token')}"
                         response = requests.post(self.action_url, json=payload, headers=headers, timeout=5)
                         response_data = response.json()
-                        if response_data.get("success"):
+                        if response_data.get("status"):
                             self.success_prompt = self.success_prompt.format(**response_data)
                             return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
                         else:
@@ -185,4 +190,4 @@ class MultiInputActionNode(MenuNode):
                     self.inputs = {}
                     return self.engine.get_current_prompt()
         
-        return self.getNext()
+        return self.getNext()   

@@ -6,6 +6,7 @@ from src.menu.graph.nodes.valiadtion_gate import ValidationGateNode
 from src.menu.graph.nodes.main_menu import MenuNavigationNode
 from src.menu.graph.nodes.single_input_action_node import SingleInputActionNode
 from src.menu.graph.nodes.exit_node import ExitNode
+from src.menu.graph.nodes.msisdn_node import Msisdn_Node
 from src.menu.graph.schemas.schema_utils import load_schema
 import json
 
@@ -96,6 +97,8 @@ def load_Menu_engine(msisdn: str, config: Dict[str, Any], config_source: str) ->
             node = MenuNavigationNode(node_id, node_config)
         elif node_type == "validation_gate":
             node = ValidationGateNode(node_id, node_config)
+        elif node_type == "cache_post":
+            node = Msisdn_Node(node_id, node_config)
         else:
             raise ValueError(f"Unknown node type: {node_type}")
             
