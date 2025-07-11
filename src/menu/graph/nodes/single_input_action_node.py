@@ -1,9 +1,7 @@
 from typing import Dict, Any, Optional
 import re
-import requests
 from src.menu.graph.nodes.node_abc import MenuNode
 from src.menu.graph.nodes.global_share import service_config
-
 
 class SingleInputActionNode(MenuNode):
     """Node for actions requiring a single user input, e.g., balance check."""
@@ -18,6 +16,16 @@ class SingleInputActionNode(MenuNode):
         self.action_url = config.get("action_url")
         self.params = config.get("params", {})
         self.success_prompt = config.get("success_prompt", "Action completed\nStatus: {status}\nPress 9 to go back, 0 to exit")
+
+    def parseResponse(self, response_data: Any) -> Any:
+        """Parse the JSON response from the POST request."""
+        if response_data and isinstance(response_data, dict):
+            if response_data.get("status"):
+                return response_data
+            self.validation_error = f"Action failed: {response_data.get('error', 'Unknown error')}"
+        else:
+            self.validation_error = "Action failed: Invalid response"
+        return None
 
     def getNext(self) -> str:
         """Generate the next prompt based on the current state."""
@@ -117,24 +125,12 @@ class SingleInputActionNode(MenuNode):
                         if isinstance(value, str) and value.startswith("<") and value.endswith(">"):
                             param_key = value[1:-1]
                             payload[key] = self.input if param_key == self.input_key else value
-                    try:
-                        headers = {
-                            "Content-Type": "application/json",
-                            "User-Agent": "Python-Requests/2.32.3"
-                        }
-                        if self.msisdn in service_config:
-                            headers["Authorization"] = f"Bearer {service_config[self.msisdn].get('auth_token')}"
-                        response = requests.post(self.action_url, json=payload, headers=headers, timeout=5)
-                        response_data = response.json()
-                        if response_data.get("srarus "):
-                            self.success_prompt = self.success_prompt.format(**response_data)
-                            return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
-                        else:
-                            self.validation_error = f"Action failed: {response_data.get('error', 'Unknown error')}"
-                            self.state = "complete"
-                            return f"{self.validation_error}\nPress 9 to go back, 0 to exit"
-                    except requests.RequestException as e:
-                        self.validation_error = f"Action failed: {str(e)}"
+                    
+                    response_data = self.make_post_request(self.action_url, payload)
+                    if response_data:
+                        self.success_prompt = self.success_prompt.format(**response_data)
+                        return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
+                    else:
                         self.state = "complete"
                         return f"{self.validation_error}\nPress 9 to go back, 0 to exit"
                 return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"

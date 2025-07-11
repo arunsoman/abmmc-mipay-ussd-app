@@ -1,3 +1,4 @@
+import cProfile
 import logging
 from typing import Dict, Any
 from src.gw.ussd_parser import USSDParser
@@ -60,6 +61,11 @@ class USSDGatewayHandler:
 
 # Example usage
 if __name__ == "__main__":
+    from timeit import timeit
+
+
+
+
     from src.menu.graph.demo_menu_config import config
     config_mapping = {
     "*222#": config,  # Default config from demo_menu_config.py
@@ -67,41 +73,56 @@ if __name__ == "__main__":
     # Add more mappings as needed, e.g., "*222#1": config2
 }
 
-    handler = USSDGatewayHandler(config_mapping)
-    
-    # Sample begin request XML
-    sample_begin ="""<?xml version="1.0" encoding="UTF-8"?> <dialog type="Begin" appCntx="networkUnstructuredSsContext_version2" networkId="0" 
-    localId="SESSION123" remoteId="REMOTE123" mapMessagesSize="1" 
-    returnMessageOnError="false">
-        <localAddress pc="7725" ssn="147">
-            <ai value="19"/>
-            <gt type="GlobalTitle0100" tt="0" es="2" np="1" nai="4" digits="9370260024"/>
-        </localAddress>
-        <remoteAddress pc="0" ssn="6">
-            <ai value="18"/>
-            <gt type="GlobalTitle0100" tt="0" es="1" np="1" nai="4" digits="93702990008"/>
-        </remoteAddress>
-        <destinationReference number="412012115087574" nai="international_number" 
-        npi="land_mobile"/>
-        <originationReference number="93702990008" nai="international_number" npi="ISDN"/>
-        <processUnstructuredSSRequest_Request invokeId="1" dataCodingScheme="15" 
-        string="*222#">
-            <msisdn number="93701234567" nai="international_number" npi="ISDN"/> 
-        </processUnstructuredSSRequest_Request>
-    </dialog>
-    """
-    
-    # Process request
-    response = handler.handle_request(sample_begin)
-    print("Generated response:\n", response)
+    def test():
+        handler = USSDGatewayHandler(config_mapping)
+        
+        # Sample begin request XML
+        sample_begin ="""<?xml version="1.0" encoding="UTF-8"?> <dialog type="Begin" appCntx="networkUnstructuredSsContext_version2" networkId="0" 
+        localId="SESSION123" remoteId="REMOTE123" mapMessagesSize="1" 
+        returnMessageOnError="false">
+            <localAddress pc="7725" ssn="147">
+                <ai value="19"/>
+                <gt type="GlobalTitle0100" tt="0" es="2" np="1" nai="4" digits="9370260024"/>
+            </localAddress>
+            <remoteAddress pc="0" ssn="6">
+                <ai value="18"/>
+                <gt type="GlobalTitle0100" tt="0" es="1" np="1" nai="4" digits="93702990008"/>
+            </remoteAddress>
+            <destinationReference number="412012115087574" nai="international_number" 
+            npi="land_mobile"/>
+            <originationReference number="93702990008" nai="international_number" npi="ISDN"/>
+            <processUnstructuredSSRequest_Request invokeId="1" dataCodingScheme="15" 
+            string="*222#">
+                <msisdn number="93701234567" nai="international_number" npi="ISDN"/> 
+            </processUnstructuredSSRequest_Request>
+        </dialog>
+        """
+        
+        # Process request
+        response = handler.handle_request(sample_begin)
+        print("Generated response:\n", response)
 
-    print("\n\n Resp :", handler.handle_request(
-    """<?xml version="1.0" encoding="UTF-8"?>
-<dialog type="Continue" localId="SESSION123" remoteId="REMOTE123" appCntx="networkUnstructuredSsContext_version2" networkId="0" mapMessagesSize="1" returnMessageOnError="false">
-    <unstructuredSSRequest_Response invokeId="1" dataCodingScheme="15" string="123456">
-        <msisdn number="93701234567" nai="international_number" npi="ISDN"/>
-    </unstructuredSSRequest_Response>
-</dialog>
-    """
+        print("\n\n Resp :", handler.handle_request(
+        """<?xml version="1.0" encoding="UTF-8"?>
+    <dialog type="Continue" localId="SESSION123" remoteId="REMOTE123" appCntx="networkUnstructuredSsContext_version2" networkId="0" mapMessagesSize="1" returnMessageOnError="false">
+        <unstructuredSSRequest_Response invokeId="1" dataCodingScheme="15" string="123456">
+            <msisdn number="93701234567" nai="international_number" npi="ISDN"/>
+        </unstructuredSSRequest_Response>
+    </dialog>
+        """
         ))
 # Example usage
+    def benchmarking():
+        # Run the function 100 times and measure total time
+        total_time = timeit('test()', globals=globals(), number=50)
+        print(f'Total time for 100 runs: {total_time:.6f} seconds')
+        print(f'Average time per run: {total_time/100:.6f} seconds')
+    
+    cProfile.run('benchmarking()', 'output.pstats')
+    import pstats
+
+    from pstats import SortKey
+
+    p = pstats.Stats('output.pstats')
+    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(10)
+

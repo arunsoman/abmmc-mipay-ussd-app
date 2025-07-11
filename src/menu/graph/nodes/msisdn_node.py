@@ -1,5 +1,4 @@
 from typing import Dict, Any
-import requests
 from src.menu.graph.nodes.node_abc import MenuNode
 from src.menu.graph.nodes.global_share import service_config
 
@@ -9,34 +8,34 @@ class Msisdn_Node(MenuNode):
         super().__init__(node_id, config)
         self.prompt = config.get("prompt", "Response: {response}\nPress 9 to go back, 0 to exit")
         self.cache_params = config.get("cache_params", {})
-        self.action_url = config.get("action_url", "no url cofiguerd for Msisdn_Node ")
+        self.action_url = config.get("action_url", "no url configured for Msisdn_Node")
         self.valid_keys = {"9", "0"}
         self.state = "initial"  # initial -> complete
         self.response_data = None
 
+    def parseResponse(self, response_data: Any) -> Any:
+        """Parse the JSON response from the POST request."""
+        if response_data and isinstance(response_data, dict):
+            return response_data
+        self.validation_error = "Request failed: Invalid response"
+        return None
+
     def getNext(self) -> str:
         """Generate the prompt with the server response or error."""
         if self.state == "initial":
-            # Build payload from cache
             cached_data = service_config.get(self.msisdn, {})
             payload = {display_name: cached_data.get(cache_key, "N/A") 
                        for cache_key, display_name in self.cache_params.items()}
-            try:
-                headers = {
-                    "Content-Type": "application/json",
-                    "User-Agent": "Python-Requests/2.32.3"
-                }
-                if self.msisdn in service_config and "auth_token" in service_config[self.msisdn]:
-                    headers["Authorization"] = f"Bearer {service_config[self.msisdn]['auth_token']}"
-                response = requests.post(self.action_url, json=payload, headers=headers, timeout=5)
-                response.raise_for_status()
-                self.response_data = response.json()
+            
+            response_data = self.make_post_request(self.action_url, payload)
+            if response_data:
+                self.response_data = response_data
                 self.state = "complete"
                 formatted_response = self.prompt.format(response=str(self.response_data))
-            except (requests.RequestException, KeyError, ValueError) as e:
-                self.validation_error = f"Request failed: {str(e)}"
+            else:
                 self.state = "complete"
                 formatted_response = self.validation_error
+            
             error_msg = f"\n{self.validation_error}" if self.validation_error else ""
             return f"{formatted_response}{error_msg}"
         elif self.state == "complete":

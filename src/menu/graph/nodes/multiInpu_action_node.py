@@ -1,7 +1,6 @@
 from typing import Dict, Any, List
 from src.menu.graph.nodes.node_abc import MenuNode
 import re
-import requests
 from src.menu.graph.nodes.global_share import service_config
 
 class MultiInputActionNode(MenuNode):
@@ -16,6 +15,16 @@ class MultiInputActionNode(MenuNode):
         self.action_url = config.get("action_url")
         self.params = config.get("params", {})
         self.success_prompt = config.get("success_prompt", "Action completed\nStatus: {status}\nPress 9 to go back, 0 to exit")
+
+    def parseResponse(self, response_data: Any) -> Any:
+        """Parse the JSON response from the POST request."""
+        if response_data and isinstance(response_data, dict):
+            if response_data.get("status"):
+                return response_data
+            self.validation_error = f"Action failed: {response_data.get('error', 'Unknown error')}"
+        else:
+            self.validation_error = "Action failed: Invalid response"
+        return None
 
     def getNext(self) -> str:
         """Generate the next prompt based on the current state."""
@@ -71,7 +80,6 @@ class MultiInputActionNode(MenuNode):
             elif "regex" in validation:
                 if re.match(validation["regex"], user_input):
                     self.inputs[input_key] = user_input
-                    # For change_pin, ensure confirm_pin matches new_pin
                     if self.node_id == "change_pin" and input_key == "confirm_pin":
                         if self.inputs.get("new_pin") != user_input:
                             self.validation_error = "Confirmation PIN does not match new PIN"
@@ -111,7 +119,7 @@ class MultiInputActionNode(MenuNode):
 
     def handleUserInput(self, user_input: str) -> str:
         """Process user input, update state, and return the next prompt."""
-        print(f"DEBUG: state={self.state}, current_step={self.current_step}, input={user_input}")  # Debug
+        print(f"DEBUG: state={self.state}, current_step={self.current_step}, input={user_input}")
         validation_result = self.validate(user_input)
         
         if self.state == "input" and validation_result == "valid":
@@ -134,24 +142,11 @@ class MultiInputActionNode(MenuNode):
                             param_key = value[1:-1]
                             payload[key] = self.inputs.get(param_key, value)
                     
-                    try:
-                        headers = {
-                            "Content-Type": "application/json",
-                            "User-Agent": "Python-Requests/2.32.3"
-                        }
-                        if self.msisdn in service_config:
-                            headers["Authorization"] = f"Bearer {service_config[self.msisdn].get('auth_token')}"
-                        response = requests.post(self.action_url, json=payload, headers=headers, timeout=5)
-                        response_data = response.json()
-                        if response_data.get("status"):
-                            self.success_prompt = self.success_prompt.format(**response_data)
-                            return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
-                        else:
-                            self.validation_error = f"Action failed: {response_data.get('error', 'Unknown error')}"
-                            self.state = "complete"
-                            return f"{self.validation_error}\nPress 9 to go back, 0 to exit"
-                    except requests.RequestException as e:
-                        self.validation_error = f"Action failed: {str(e)}"
+                    response_data = self.make_post_request(self.action_url, payload)
+                    if response_data:
+                        self.success_prompt = self.success_prompt.format(**response_data)
+                        return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
+                    else:
                         self.state = "complete"
                         return f"{self.validation_error}\nPress 9 to go back, 0 to exit"
                 return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
@@ -189,4 +184,4 @@ class MultiInputActionNode(MenuNode):
                     self.inputs = {}
                     return self.engine.get_current_prompt()
         
-        return self.getNext()   
+        return self.getNext()
