@@ -1,49 +1,56 @@
-import cProfile
 import logging
-from typing import Dict, Any
+from typing import Dict
 from src.gw.ussd_parser import USSDParser
-from src.menu.graph.menu_state_management import MenuSessionManager
 from src.gw.ussd_session_utils import USSDSessionManager
+from src.menu.graph.menu_state_management import MenuSessionManager
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("USSDHandler")
+logger = logging.getLogger(__name__)
 
 class USSDGatewayHandler:
-    def __init__(self, config_mapping: Dict[str, Dict], session_timeout: int = 300000, max_pin_attempts: int = 3):
-        self.parser = USSDParser(USSDSessionManager(session_timeout))
-        self.menu_state_machine = MenuSessionManager(session_timeout_minutes=session_timeout // 60000)
-        self.config_mapping = config_mapping  # Dictionary mapping dial strings to configs, e.g., {"*222#": config, "*222#1": config2}
+    def __init__(self, config_mapping: Dict[str, Dict]):
+        self.parser = USSDParser(USSDSessionManager())
+        self.menu_state_machine = MenuSessionManager(session_timeout_seconds=300)
+        self.menu_state_machine.set_config_mapping(config_mapping)
+        self.config_mapping = config_mapping
 
-    def handle_request(self, raw_xml: str) -> str:
+    def handle_request(self, raw_xml: str):
         try:
-            # Parse incoming XML
-            parsed = self.parser.parse_request(raw_xml)
-            logger.debug(f"Parsed request: {parsed}")
-            dialog_type = parsed['dialog_type']
-            msisdn = parsed['msisdn']
-            user_input = parsed['user_input']
+            parsed_data = self.parser.parse_request(raw_xml)
+            msisdn = parsed_data['msisdn']
+            dialog_type = parsed_data['dialog_type']
+            user_input = parsed_data['user_input']
 
+            # Determine service code
             if dialog_type == "Begin":
-                service_code = user_input  # Initial dial string, e.g., "*222#" or "*222#1"
-                if service_code not in self.config_mapping:
-                    return self._generate_error_response("Service not configured yet")
-                # Valid service code, use the corresponding config
-                config = self.config_mapping[service_code]
-                menu_engine = self.menu_state_machine.get_or_create_session(msisdn, config=config)
-                response = menu_engine.get_current_prompt()  # Should be ValidationGateNode's prompt
-                end_session = False
-            else:  # Continue
-                menu_engine = self.menu_state_machine.get_or_create_session(msisdn)
+                service_code = user_input or '*220#'
+                # Store service code in session for subsequent requests
+                self.parser.session_manager.get_session(msisdn).store_response('service_code', service_code)
+            else:
+                # Retrieve service code from session
+                session = self.parser.session_manager.get_session(msisdn)
+                service_code = session.session_data.get('service_code', '*220#') if session else '*220#'
+
+            config = self.config_mapping.get(service_code, {})
+            menu_engine = self.menu_state_machine.get_or_create_session(
+                msisdn=msisdn,
+                service_code=service_code,
+                config=config
+            )
+
+            # Process user input for non-Begin requests
+            if dialog_type == "Continue" and user_input:
                 response = menu_engine.process_user_input(user_input)
-                end_session = True if user_input == "0" or response == "Session ended" else False
-            response_xml = self.parser.getResponse(msisdn, response, end_session)
-            logger.debug(f"Generated response: {response_xml}")
-            return response_xml
+            else:
+                response = menu_engine.get_current_prompt()
 
+            end_session = parsed_data['dialog_type'] == 'End' or menu_engine.session_active is False
+            return self.parser.getResponse(msisdn, response, end_session)
         except Exception as e:
-            logger.exception("Critical error handling request")
-            return self._generate_error_response(str(e))
+            logger.error(f"Critical error handling request: {e}")
+            return self.parser.getResponse(msisdn, f"Error: {str(e)}", True)
 
+            
     def _generate_error_response(self, error_msg: str) -> str:
         error_xml = f"""
         <?xml version="1.0" encoding="UTF-8"?>
@@ -66,7 +73,7 @@ if __name__ == "__main__":
 
 
 
-    from src.menu.graph.demo_menu_config import config
+    from config.demo_menu_config import config
     config_mapping = {
     "*222#": config,  # Default config from demo_menu_config.py
     "*222#1": config  # Example: same config, but could be config2

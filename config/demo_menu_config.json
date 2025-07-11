@@ -1,4 +1,4 @@
-config = {
+{
     "root_validation_gate": {
         "type": "validation_gate",
         "prompt": "Enter Your My Money Pin:\n",
@@ -17,7 +17,6 @@ config = {
             {"key": "3", "label": "Payment", "target_menu": "payment_menu"},
             {"key": "4", "label": "Bills", "target_menu": "bills_menu"},
             {"key": "5", "label": "Top-up", "target_menu": "topup_menu"},
-            {"key": "6", "label": "Approvals", "target_menu": "approvals_menu"}
             {"key": "6", "label": "Approvals", "target_menu": "approvals_menu"}
         ],
         "transitions": {
@@ -212,7 +211,7 @@ config = {
                 "input_key": "amount",
                 "validation": {"type": "numeric", "min": 1}
             }
-        ],
+        ],  
         "confirmation_prompt": "Transfer {amount} AFN to Maiwand account {account_id}? 1: OK, 2: Cancel",
         "action_url": "src.services.BankTransactionAPI.BankTransactionAPI",
         "params": {"bank": "Maiwand"},

@@ -1,89 +1,69 @@
-from typing import Dict, Any, Optional
 import threading
-import time
-from datetime import datetime, timedelta
-from src.menu.graph.nodes.menu_engine import MenuEngine, load_Menu_engine
+from typing import Dict, Optional
+from cachetools import TTLCache
+from .nodes.menu_engine import MenuEngine
+from .nodes.engine_cache import engine_cache
 
 class MenuSessionManager:
-    def __init__(self, session_timeout_minutes: int = 500000):
-        self.session_timeout = timedelta(minutes=session_timeout_minutes)
-        self.sessions = {}  # msisdn -> {'engine': MenuEngine, 'config': Dict, 'last_activity': datetime}
+    """Optimized session manager for USSD menu engines with token storage"""
+    
+    def __init__(self, session_timeout_seconds: int = 300, max_sessions: int = 10000):
+        """Initialize with TTL cache and thread-safe lock"""
+        self.sessions = TTLCache(maxsize=max_sessions, ttl=session_timeout_seconds)
+        self.tokens = TTLCache(maxsize=max_sessions, ttl=session_timeout_seconds)
         self.lock = threading.Lock()
-        self.cleanup_thread = None
-        self.running = True
-        self._start_cleanup_thread()
+        self.session_timeout = session_timeout_seconds
+        self.config_mapping: Dict[str, Dict] = {}
 
-    def _start_cleanup_thread(self):
-        self.cleanup_thread = threading.Thread(target=self._cleanup_expired_sessions, daemon=True)
-        self.cleanup_thread.start()
-        print("Session cleanup thread started")
-
-    def _cleanup_expired_sessions(self):
-        while self.running:
-            try:
-                with self.lock:
-                    current_time = datetime.now()
-                    expired_msisdns = [
-                        msisdn for msisdn, session_data in self.sessions.items()
-                        if current_time - session_data['last_activity'] > self.session_timeout
-                    ]
-                    for msisdn in expired_msisdns:
-                        self.sessions[msisdn]['engine'] = None
-                        del self.sessions[msisdn]
-                        print(f"Session expired for MSISDN: {msisdn}")
-                time.sleep(30)
-            except Exception as e:
-                print(f"Error in cleanup thread: {e}")
-
-    def get_or_create_session(self, msisdn: str, config: Optional[Dict] = None) -> MenuEngine:
+    def set_config_mapping(self, config_mapping: Dict[str, Dict]):
+        """Set configuration mapping for service codes"""
         with self.lock:
-            current_time = datetime.now()
-            if msisdn in self.sessions:
-                session_data = self.sessions[msisdn]
-                session_data['last_activity'] = current_time
-                return session_data['engine']
-            else:
-                if config is None:
-                    raise ValueError("Config required for new session")
-                engine = load_Menu_engine(msisdn, config, "")
-                self.sessions[msisdn] = {
-                    'engine': engine,
-                    'config': config,
-                    'last_activity': current_time
-                }
-                print(f"New session created for MSISDN: {msisdn}")
-                return engine
+            self.config_mapping = config_mapping
 
-    def process_user_input(self, msisdn: str, user_input: str) -> Dict[str, Any]:
-        engine = self.get_or_create_session(msisdn)
+    def get_or_create_session(self, msisdn: str, service_code: str = "", config: Optional[Dict] = None) -> MenuEngine:
+        """Get or create a session-specific MenuEngine with minimal overhead"""
+        session_key = f"{msisdn}:{service_code}"
         with self.lock:
-            if msisdn in self.sessions:
-                self.sessions[msisdn]['last_activity'] = datetime.now()
-        response = engine.process_user_input(user_input)
-        if not engine.session_active:
-            print(f"Session ended for MSISDN: {msisdn}")
-            self.end_session(msisdn)
-            return {'text': "Session ended. Thank you for using our service.", 'end_session': True}
-        return {'text': response, 'end_session': not engine.session_active or response == "0"}
+            if session_key in self.sessions:
+                return self.sessions[session_key]
 
-    def get_initial_prompt(self, msisdn: str) -> str:
-        engine = self.get_or_create_session(msisdn)
-        return engine.get_current_prompt()
+            menu_config = config or self.config_mapping.get(service_code, {})
+            if not menu_config:
+                raise ValueError(f"No config found for service code: {service_code}")
 
-    def end_session(self, msisdn: str):
+            engine = engine_cache.get_session_engine(msisdn)
+            self.sessions[session_key] = engine
+            return engine
+
+    def store_token(self, msisdn: str, service_code: str, auth_token: str):
+        """Store authentication token for the session"""
+        session_key = f"{msisdn}:{service_code}"
         with self.lock:
-            if msisdn in self.sessions:
-                del self.sessions[msisdn]
-                print(f"Session ended for MSISDN: {msisdn}")
+            self.tokens[session_key] = auth_token
 
-    def get_active_sessions(self) -> Dict[str, datetime]:
+    def get_token(self, msisdn: str, service_code: str) -> Optional[str]:
+        """Retrieve authentication token for the session"""
+        session_key = f"{msisdn}:{service_code}"
         with self.lock:
-            return {msisdn: data['last_activity'] for msisdn, data in self.sessions.items()}
+            return self.tokens.get(session_key)
 
-    def shutdown(self):
-        self.running = False
-        if self.cleanup_thread:
-            self.cleanup_thread.join()
+    def get_session(self, msisdn: str, service_code: str = "") -> Optional[MenuEngine]:
+        """Retrieve an existing session or return None"""
+        session_key = f"{msisdn}:{service_code}"
         with self.lock:
-            self.sessions.clear()
-        print("Session manager shutdown complete")
+            return self.sessions.get(session_key)
+
+    def end_session(self, msisdn: str, service_code: str = ""):
+        """End a session and remove it from cache"""
+        session_key = f"{msisdn}:{service_code}"
+        with self.lock:
+            self.sessions.pop(session_key, None)
+            self.tokens.pop(session_key, None)
+
+    def update_activity(self, msisdn: str, service_code: str = ""):
+        """Update session activity to refresh TTL"""
+        session_key = f"{msisdn}:{service_code}"
+        with self.lock:
+            if session_key in self.sessions:
+                _ = self.sessions[session_key]
+                _ = self.tokens.get(session_key)  # Refresh token TTL

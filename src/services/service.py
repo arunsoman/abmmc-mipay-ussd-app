@@ -34,7 +34,7 @@ class ServiceABC(ABC):
          
         response = self._session.post(
                 self.getUrl(),
-                json=payLoad,
+                json=payLoad|self.getPayload(),
                 headers=ServiceABC._session.headers,
                 timeout=ServiceABC._request_timeout,
                 

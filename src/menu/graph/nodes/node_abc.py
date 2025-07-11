@@ -5,23 +5,19 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
 import importlib
-from src.menu.graph.nodes.global_share import service_config
 from src.services.service import ServiceABC
-
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-from src.services.ValidationApi import Validate
-
 
 class MenuNode(ABC):
-    """Abstract base class for all menu nodes with renderer logic and optimized HTTP request handling."""
-    service : ServiceABC
+    """Abstract base class for all menu nodes with optimized initialization and request handling"""
+    __slots__ = ('node_id', 'config', 'validation_error', 'next_nodes', 'engine', 'msisdn', 
+                 '_service_class', '_service', 'request_timeout')
+
     # Shared requests Session for connection pooling and Keep-Alive
     _session = requests.Session()
-    
-    # Configure retries for transient failures
     _retry_strategy = Retry(
         total=3,
         backoff_factor=0.1,
@@ -30,95 +26,92 @@ class MenuNode(ABC):
     )
     _adapter = HTTPAdapter(
         max_retries=_retry_strategy,
-        pool_connections=10,  # Max connections to keep in pool
-        pool_maxsize=10       # Max concurrent connections
+        pool_connections=10,
+        pool_maxsize=10
     )
     _session.mount("http://", _adapter)
     _session.mount("https://", _adapter)
-    
-    # Configure default headers with compression
     _session.headers.update({
         "Content-Type": "application/json",
         "User-Agent": "Python-Requests/2.32.3",
         "Accept": "application/json",
-        "Accept-Encoding": "gzip, deflate",  # Enable compression
-        "Connection": "keep-alive"          # Explicitly enable Keep-Alive
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive"
     })
 
     def __init__(self, node_id: str, config: Dict[str, Any]):
         self.node_id = node_id
         self.config = config
         self.validation_error = ""
-        self.next_nodes: Dict[str, str] = {}  # Key: condition, Value: node_id
+        self.next_nodes: Dict[str, str] = {}
         self.engine: Optional['MenuEngine'] = None
         self.msisdn = config.get("msisdn", "")
-        self.service = {}
-        # Initialize service
-        self.service = None
-
-
-        
-        path = self.config.get('validation_url', '') or self.config.get('action_url', '')
-        if path and not path.startswith("http"):
-            logger.info(f"Loading service from path: {path}")
-            try:
-                # Split path to get module and class
-                if '.' not in path:
-                    raise ValueError(f"Invalid service path {path}: must include module and class name (e.g., module.class)")
-                module_path, class_name = path.rsplit(".", 1)
-                logger.debug(f"Module path: {module_path}, Class name: {class_name}")
-                module = importlib.import_module(module_path)
-                klass = getattr(module, class_name)
-                # Check if klass is a class
-                if not isinstance(klass, type):
-                    raise ValueError(f"Expected a class at {path}, got {type(klass).__name__} instead")
-                # Check if klass inherits from ServiceABC
-                if not issubclass(klass, ServiceABC):
-                    raise ValueError(f"Service class {class_name} at {path} must inherit from ServiceABC")
-                self.service = klass()  # Instantiate the service class
-                logger.info(f"Service {class_name} loaded successfully for node {node_id}")
-            except (ValueError, ImportError, AttributeError) as e:
-                logger.error(f"Failed to load service from path {path} for node {node_id}: {str(e)}")
-                raise ValueError(f"Invalid service configuration for node {node_id}: {str(e)}")
-            except Exception as e:
-                logger.error(f"Unexpected error loading service from path {path} for node {node_id}: {str(e)}")
-                raise ValueError(f"Unexpected error in service configuration for node {node_id}: {str(e)}")
-        else:
-            logger.info(f"No valid service path provided for node {node_id}, proceeding without service")
-
-
-
-
-        # Configurable timeout from node config, default to 5 seconds
+        self._service_class = self._resolve_service_class(config)
+        self._service = None  # Lazy-loaded
         self.request_timeout = config.get("request_timeout", 5.0)
 
+    def _resolve_service_class(self, config: Dict[str, Any]) -> Optional[type]:
+        """Resolve service class without instantiation for lazy loading"""
+        path = config.get('validation_url', '') or config.get('action_url', '')
+        if path and not path.startswith("http"):
+            try:
+                module_path, class_name = path.rsplit(".", 1)
+                module = importlib.import_module(module_path)
+                klass = getattr(module, class_name)
+                if not isinstance(klass, type) or not issubclass(klass, ServiceABC):
+                    logger.error(f"Invalid service class {class_name} at {path}")
+                    return None
+                logger.info(f"Resolved service {class_name} for node {self.node_id}")
+                return klass
+            except (ValueError, ImportError, AttributeError) as e:
+                logger.error(f"Failed to resolve service {path} for node {self.node_id}: {str(e)}")
+                return None
+        return None
+
+    @property
+    def service(self) -> Optional[ServiceABC]:
+        """Lazy service initialization"""
+        if self._service is None and self._service_class:
+            self._service = self._service_class()
+        return self._service
+
+    def reset_state(self, msisdn: str):
+        """Reset all stateful properties for a new session"""
+        self.msisdn = msisdn
+        self.validation_error = ""
+        self._service = None  # Reset service instance for lazy loading
 
     def add_transition(self, condition: str, target_node_id: str):
-        """Add transition to another node."""
+        """Add transition to another node"""
         self.next_nodes[condition] = target_node_id
-    
+
     def set_engine(self, engine: 'MenuEngine'):
-        """Set reference to engine for node transitions."""
+        """Set reference to engine for node transitions"""
         self.engine = engine
-    
-    def make_post_request(self, payLoad: Dict) -> Any:
-        """Delegate HTTP POST request to the service instance."""
-        return self.service.doPost(payLoad=payLoad) 
-    
-    def parseResponse(self, response_data: Any) -> Any:
-       return self.service.parseResponse(response_data)
-    
+
+    def make_post_request(self, payload: Dict) -> Any:
+        """Delegate HTTP POST request to the service instance with optimized settings"""
+        if not self.service:
+            logger.error(f"No service configured for node {self.node_id}")
+            return None
+        try:
+            return self.service.doPost(payload)
+        except requests.RequestException as e:
+            logger.error(f"POST request failed for node {self.node_id}: {str(e)}")
+            self.validation_error = f"Request failed: {str(e)}"
+            return None
+
     @abstractmethod
     def getNext(self) -> str:
-        """Get the next prompt or response based on the node's state."""
+        """Get the next prompt or response based on the node's state"""
         pass
-    
+
     @abstractmethod
     def getPrevious(self) -> str:
-        """Get the prompt of the previous node or a fallback message."""
+        """Get the prompt of the previous node or a fallback message"""
         pass
-    
+
     @abstractmethod
     def handleUserInput(self, user_input: str) -> str:
-        """Process user input, update state, and return the next prompt or response."""
+        """Process user input, update state, and return the next prompt or response"""
         pass

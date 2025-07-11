@@ -89,7 +89,7 @@ def load_Menu_engine(msisdn: str, config: Dict[str, Any] = None, config_source: 
     return engine
 
 if __name__ == "__main__":
-    from src.menu.graph.demo_menu_config import config as demo_config
+    from config.demo_menu_config import config as demo_config
     def interactive_console():
         engine = load_Menu_engine("1000", demo_config, "")
         print(engine.get_current_prompt())
