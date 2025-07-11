@@ -4,15 +4,20 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
+import importlib
 from src.menu.graph.nodes.global_share import service_config
+from src.services.service import ServiceABC
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+from src.services.ValidationApi import Validate
+
 
 class MenuNode(ABC):
     """Abstract base class for all menu nodes with renderer logic and optimized HTTP request handling."""
-    
+    service : ServiceABC
     # Shared requests Session for connection pooling and Keep-Alive
     _session = requests.Session()
     
@@ -47,8 +52,46 @@ class MenuNode(ABC):
         self.next_nodes: Dict[str, str] = {}  # Key: condition, Value: node_id
         self.engine: Optional['MenuEngine'] = None
         self.msisdn = config.get("msisdn", "")
+        self.service = {}
+        # Initialize service
+        self.service = None
+
+
+        
+        path = self.config.get('validation_url', '') or self.config.get('action_url', '')
+        if path and not path.startswith("http"):
+            logger.info(f"Loading service from path: {path}")
+            try:
+                # Split path to get module and class
+                if '.' not in path:
+                    raise ValueError(f"Invalid service path {path}: must include module and class name (e.g., module.class)")
+                module_path, class_name = path.rsplit(".", 1)
+                logger.debug(f"Module path: {module_path}, Class name: {class_name}")
+                module = importlib.import_module(module_path)
+                klass = getattr(module, class_name)
+                # Check if klass is a class
+                if not isinstance(klass, type):
+                    raise ValueError(f"Expected a class at {path}, got {type(klass).__name__} instead")
+                # Check if klass inherits from ServiceABC
+                if not issubclass(klass, ServiceABC):
+                    raise ValueError(f"Service class {class_name} at {path} must inherit from ServiceABC")
+                self.service = klass()  # Instantiate the service class
+                logger.info(f"Service {class_name} loaded successfully for node {node_id}")
+            except (ValueError, ImportError, AttributeError) as e:
+                logger.error(f"Failed to load service from path {path} for node {node_id}: {str(e)}")
+                raise ValueError(f"Invalid service configuration for node {node_id}: {str(e)}")
+            except Exception as e:
+                logger.error(f"Unexpected error loading service from path {path} for node {node_id}: {str(e)}")
+                raise ValueError(f"Unexpected error in service configuration for node {node_id}: {str(e)}")
+        else:
+            logger.info(f"No valid service path provided for node {node_id}, proceeding without service")
+
+
+
+
         # Configurable timeout from node config, default to 5 seconds
         self.request_timeout = config.get("request_timeout", 5.0)
+
 
     def add_transition(self, condition: str, target_node_id: str):
         """Add transition to another node."""
@@ -58,62 +101,12 @@ class MenuNode(ABC):
         """Set reference to engine for node transitions."""
         self.engine = engine
     
-    def make_post_request(
-        self,
-        url: str,
-        payload: Dict[str, Any],
-        extra_headers: Optional[Dict[str, str]] = None,
-        stream: bool = False
-    ) -> Any:
-        """
-        Centralized method to make POST requests with optimized performance.
-        
-        Args:
-            url: The target URL for the POST request.
-            payload: The JSON payload to send.
-            extra_headers: Additional headers to include (e.g., Authorization).
-            stream: Whether to stream the response (for large responses).
-        
-        Returns:
-            Parsed response data as defined by the subclass's parseResponse method,
-            or None if the request fails.
-        """
-        headers = {}
-        if self.msisdn in service_config and "auth_token" in service_config[self.msisdn]:
-            headers["Authorization"] = f"Bearer {service_config[self.msisdn]['auth_token']}"
-        if extra_headers:
-            headers.update(extra_headers)
-        
-        logger.debug(f"Making POST request to {url} with payload {payload}")
-        try:
-            response = self._session.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=self.request_timeout,
-                stream=stream
-            )
-            response.raise_for_status()
-            response_data = response.json() if not stream else response.iter_content(chunk_size=8192)
-            logger.debug(f"Received response from {url}: {response_data if not stream else 'streamed'}")
-            return self.parseResponse(response_data)
-        except requests.RequestException as e:
-            self.validation_error = f"Request failed: {str(e)}"
-            logger.error(f"Request to {url} failed: {str(e)}")
-            return None
+    def make_post_request(self, payLoad: Dict) -> Any:
+        """Delegate HTTP POST request to the service instance."""
+        return self.service.doPost(payLoad=payLoad) 
     
     def parseResponse(self, response_data: Any) -> Any:
-        """
-        Default implementation for parsing response data. Subclasses should override
-        for specific response handling. Returns None for nodes that don't make network calls.
-        
-        Args:
-            response_data: The raw response data (JSON or streamed content).
-        
-        Returns:
-            None for nodes that don't handle network responses.
-        """
-        return None
+       return self.service.parseResponse(response_data)
     
     @abstractmethod
     def getNext(self) -> str:

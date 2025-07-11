@@ -1,7 +1,7 @@
 from src.services.service import ServiceABC
 from typing import Any, Dict
 
-class BundleTopupAPI(ServiceABC):
+class PayBillAPI(ServiceABC):
     # url = self.baseurl + 'tms/api/tms/router/basic'
     def getUrl(self) -> str:
         """Return the URL for the BundleTopupAPI request."""

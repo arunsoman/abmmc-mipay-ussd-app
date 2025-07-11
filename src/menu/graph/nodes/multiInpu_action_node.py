@@ -142,7 +142,7 @@ class MultiInputActionNode(MenuNode):
                             param_key = value[1:-1]
                             payload[key] = self.inputs.get(param_key, value)
                     
-                    response_data = self.make_post_request(self.action_url, payload)
+                    response_data = self.make_post_request( payload)
                     if response_data:
                         self.success_prompt = self.success_prompt.format(**response_data)
                         return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"

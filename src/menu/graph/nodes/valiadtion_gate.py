@@ -11,12 +11,11 @@ class ValidationGateNode(MenuNode):
         self.valid_pin = config.get("valid_pin", "123456")
         self.validation_url = config.get("validation_url")
         self.prompt = config.get("prompt", "Enter your PIN:\n")
-        self.service = None  # Mock or actual AuthService
 
     def parseResponse(self, response_data: Any) -> Any:
         """Parse the JSON response from the POST request."""
         if response_data and isinstance(response_data, dict):
-            if response_data.get("status"):
+            if response_data.get("stat"):
                 return {
                     "status": response_data.get("status"),
                     "auth_token": response_data.get("auth_token", "mock_token")
@@ -42,7 +41,7 @@ class ValidationGateNode(MenuNode):
 
         if self.validation_url:
             payload = {"password": user_input, "phone": self.msisdn}
-            response_data = self.make_post_request(self.validation_url, payload)
+            response_data = self.make_post_request( payload)
             if response_data:
                 service_config[self.msisdn] = {
                     "msisdn": self.msisdn,

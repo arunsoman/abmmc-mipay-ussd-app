@@ -1,25 +1,24 @@
 from src.services.service import ServiceABC
 from typing import Any, Dict
 
-class BundleTopupAPI(ServiceABC):
+class Validate(ServiceABC):
     # url = self.baseurl + 'tms/api/tms/router/basic'
     def getUrl(self) -> str:
-        """Return the URL for the BundleTopupAPI request."""
+        """Return the URL for the BankTransactionAPI request."""
         return self.baseurl + 'tms/api/tms/router/basic'
 
-    def getPayload(self, amount: str, service: str, mobileNo: str, code: str, pin: str) -> Dict:
-        """Create the JSON payload for the BundleTopupAPI request."""
-        initiator_arr = {"id": getattr(self, 'user_id', 0)}  # Assuming user_id from UserProfileData
-        service_provider_arr = {"id": getattr(self, 'user_id', 0)}
-        service_receiver_arr = {"id": getattr(self, 'user_id', 0)}
+    def getPayload(self, initiator: int, serviceProvider: int, serviceReceiver: int, serviceName: str, channel: str, amount: str, bankAcId: int, pin: str) -> Dict:
+        """Create the JSON payload for the BankTransactionAPI request."""
+        initiator_arr = {"id": initiator}
+        service_provider_arr = {"id": serviceProvider}
+        service_receiver_arr = {"id": serviceReceiver}
         context = {
+            "SERVICE_NAME": serviceName,
             "MEDIUM": "IOS",
+            "CHANNEL": channel,
             "AMOUNT": amount,
-            "SERVICE_NAME": service,
-            "mobileNumber": mobileNo,
-            "bundle": code,
-            "CHANNEL": "iOS",
-            "PIN": pin
+            "bankAccId": str(bankAcId),
+            "bankPin": pin
         }
         return {
             "initiator": initiator_arr,
@@ -29,12 +28,12 @@ class BundleTopupAPI(ServiceABC):
         }
 
     def parseResponse(self, response_data: Any) -> Any:
-        """Parse the JSON response from the BundleTopupAPI request."""
+        """Parse the JSON response from the BankTransactionAPI request."""
         if response_data and isinstance(response_data, dict):
             if response_data.get("responseCode") == 200:
-                status_code = response_data.get("data", {}).get("status_code", 0)
+                status = response_data.get("data", {}).get("status", False)
                 return {
-                    "status": status_code == 200,
+                    "status": status,
                     "data": response_data.get("data", {})
                 }
             self.validation_error = f"Validation failed: {response_data.get('error', 'Invalid response')}"

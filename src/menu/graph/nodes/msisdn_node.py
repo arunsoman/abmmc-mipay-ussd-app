@@ -27,7 +27,7 @@ class Msisdn_Node(MenuNode):
             payload = {display_name: cached_data.get(cache_key, "N/A") 
                        for cache_key, display_name in self.cache_params.items()}
             
-            response_data = self.make_post_request(self.action_url, payload)
+            response_data = self.make_post_request( payload)
             if response_data:
                 self.response_data = response_data
                 self.state = "complete"
