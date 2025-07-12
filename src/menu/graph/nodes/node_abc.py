@@ -95,7 +95,7 @@ class MenuNode(ABC):
             logger.error(f"No service configured for node {self.node_id}")
             return None
         try:
-            return self.service.doPost(payload)
+            return self.service.doPost(payload, msisdn=self.msisdn)
         except requests.RequestException as e:
             logger.error(f"POST request failed for node {self.node_id}: {str(e)}")
             self.validation_error = f"Request failed: {str(e)}"

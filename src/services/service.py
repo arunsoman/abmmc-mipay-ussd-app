@@ -3,6 +3,7 @@ from typing import Any, Dict
 import  requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from src.menu.graph.menu_state_management import  MenuSessionManager
 
 class ServiceABC(ABC):
     _session = requests.Session()
@@ -28,23 +29,30 @@ class ServiceABC(ABC):
         "Accept": "application/json",
         "Accept-Encoding": "gzip, deflate",  # Enable compression
         "Connection": "keep-alive"          # Explicitly enable Keep-Alive
+        
     })
 
-    def doPost (self, payLoad: Dict)->Any:
-         
+    def doPost (self, payLoad: Dict, msisdn: str)->Any:
+        
+
+        headers = dict(ServiceABC._session.headers)
+        headers["Authorization"] = f"Bearer {MenuSessionManager.get_token(msisdn)}"
+
+        
         response = self._session.post(
                 self.getUrl(),
                 json=payLoad|self.getPayload(),
-                headers=ServiceABC._session.headers,
+                headers=headers,
                 timeout=ServiceABC._request_timeout,
                 
             )
-        return  self.parseResponse(response)
+        return  self.parseResponse(response.json())
 
     """Abstract base class for API services."""
     def __init__(self):
         self.baseurl = "http://localhost:8080/"  # Placeholder base URL
         self.validation_error = ""
+        
 
     @abstractmethod
     def getUrl(self, *args, **kwargs) -> str:
@@ -59,4 +67,4 @@ class ServiceABC(ABC):
     @abstractmethod
     def parseResponse(self, response_data: Any) -> Any:
         """Parse the JSON response from the API request."""
-        pass
+        pass 

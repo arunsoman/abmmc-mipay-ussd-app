@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from src.menu.graph.menu_state_management import MenuSessionManager
 from src.menu.graph.nodes.node_abc import MenuNode
 
 class ExitNode(MenuNode):
@@ -7,6 +8,7 @@ class ExitNode(MenuNode):
 
     """Node to terminate the session."""
     def getNext(self) -> str:
+        MenuSessionManager.store_token(self.msisdn, "")
         return self.config.get("prompt", "Session ended")
     
     def getPrevious(self) -> str:
@@ -18,6 +20,7 @@ class ExitNode(MenuNode):
         return "No previous menu"
     
     def handleUserInput(self, user_input: str) -> str:
+        MenuSessionManager.store_token(self.msisdn, "") 
         if self.engine:
             self.engine.session_active = False
         return "Session ended"

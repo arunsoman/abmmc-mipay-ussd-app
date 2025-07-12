@@ -131,6 +131,9 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
             else:
                 self._send_response(400, {"responseCode": 400, "error": "Missing initiator or context", "data": None})
 
+        elif path == "/aaa/USSDLogin":
+            self._send_response(200, {"responseCode": 200, "data": {"auth_token": "-500-mocked-by dummy server"}, "error": None})
+
         elif path == "/api/pwd/update":
             # change_pin
             required_fields = ["old_pin", "new_pin", "confirm_pin"]
