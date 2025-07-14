@@ -3,8 +3,27 @@ from typing import Any, Dict
 import  requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from src.menu.graph.menu_state_management import  MenuSessionManager
+from .TokenManager import TokenManager
 
+class ServiceTransactionRecord:
+    """Python equivalent of Java ServiceTransactionRecord with slots."""
+    __slots__ = ('initiator', 'service_provider', 'service_receiver', 'context')
+
+    def __init__(self, initiator: str, service_provider: str, 
+                 service_receiver: str, context: Dict[str, Any]):
+        self.initiator = initiator
+        self.service_provider = service_provider
+        self.service_receiver = service_receiver
+        self.context = context
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "initiator": self.initiator,
+            "serviceProvider": self.service_provider,
+            "serviceReceiver": self.service_receiver,
+            "context": self.context
+        }
+    
 class ServiceABC(ABC):
     _session = requests.Session()
     _request_timeout = 20
@@ -29,14 +48,13 @@ class ServiceABC(ABC):
         "Accept": "application/json",
         "Accept-Encoding": "gzip, deflate",  # Enable compression
         "Connection": "keep-alive"          # Explicitly enable Keep-Alive
-        
     })
+    
 
     def doPost (self, payLoad: Dict, msisdn: str)->Any:
         
 
-        headers = dict(ServiceABC._session.headers)
-        headers["Authorization"] = f"Bearer {MenuSessionManager.get_token(msisdn)}"
+        headers = dict(ServiceABC._session.headers)|{"Authorization" : f"Bearer {TokenManager.get_token(msisdn)}"}
 
         
         response = self._session.post(

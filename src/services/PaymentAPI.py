@@ -1,43 +1,49 @@
-from src.services.service import ServiceABC
-from typing import Any, Dict
+"""
+    Auto-generated service class: PaymentAPI
+    Generated at: C:\Users\arun\Documents\ussdgw\src\services\PaymentAPI.py
+"""
+from typing import Dict, Any
+from abc import ABC, abstractmethod
+
+try:
+    from src.services.ServiceABC import ServiceABC
+except ImportError:
+    # Fallback: create a basic ABC if ServiceABC not found
+    class ServiceABC(ABC):
+        def __init__(self):
+            self.baseurl = "http://localhost:8080/"
+            self.validation_error = ""
+        
+        @abstractmethod
+        def getUrl(self, *args, **kwargs) -> str:
+            pass
+        
+        @abstractmethod
+        def getPayload(self, *args, **kwargs) -> Dict:
+            pass
+        
+        @abstractmethod
+        def parseResponse(self, response_data: Any) -> Any:
+            pass
 
 class PaymentAPI(ServiceABC):
-    # url = self.baseurl + 'tms/api/tms/router/basic'
-    def getUrl(self) -> str:
-        """Return the URL for the BundleTopupAPI request."""
-        return self.baseurl + 'tms/api/tms/router/basic'
-
-    def getPayload(self, amount: str, service: str, mobileNo: str, code: str, pin: str) -> Dict:
-        """Create the JSON payload for the BundleTopupAPI request."""
-        initiator_arr = {"id": getattr(self, 'user_id', 0)}  # Assuming user_id from UserProfileData
-        service_provider_arr = {"id": getattr(self, 'user_id', 0)}
-        service_receiver_arr = {"id": getattr(self, 'user_id', 0)}
-        context = {
-            "MEDIUM": "IOS",
-            "AMOUNT": amount,
-            "SERVICE_NAME": service,
-            "mobileNumber": mobileNo,
-            "bundle": code,
-            "CHANNEL": "iOS",
-            "PIN": pin
-        }
+    """Auto-generated service class"""
+    
+    def __init__(self):
+        super().__init__()
+    
+    def getUrl(self, *args, **kwargs) -> str:
+        """Return the URL for the API request."""
+        return f"{self.baseurl}api/paymentapi"
+    
+    def getPayload(self, *args, **kwargs) -> Dict:
+        """Create the JSON payload for the API request."""
         return {
-            "initiator": initiator_arr,
-            "serviceProvider": service_provider_arr,
-            "serviceReceiver": service_receiver_arr,
-            "context": context
+            "service": "PaymentAPI",
+            "timestamp": __import__('time').time(),
+            "source": "auto_generated"
         }
-
+    
     def parseResponse(self, response_data: Any) -> Any:
-        """Parse the JSON response from the BundleTopupAPI request."""
-        if response_data and isinstance(response_data, dict):
-            if response_data.get("responseCode") == 200:
-                status_code = response_data.get("data", {}).get("status_code", 0)
-                return {
-                    "status": status_code == 200,
-                    "data": response_data.get("data", {})
-                }
-            self.validation_error = f"Validation failed: {response_data.get('error', 'Invalid response')}"
-        else:
-            self.validation_error = "Validation failed: Invalid response"
-        return None
+        """Parse the JSON response from the API request."""
+        return response_data

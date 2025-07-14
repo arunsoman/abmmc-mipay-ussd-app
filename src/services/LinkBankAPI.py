@@ -1,6 +1,6 @@
 """
-    Auto-generated service class: ChangePinAPI
-    Generated at: C:\Users\arun\Documents\ussdgw\src\services\ChangePinAPI.py
+    Auto-generated service class: LinkBankAPI
+    Generated at: C:\Users\arun\Documents\ussdgw\src\services\LinkBankAPI.py
 """
 from typing import Dict, Any
 from abc import ABC, abstractmethod
@@ -26,7 +26,7 @@ except ImportError:
         def parseResponse(self, response_data: Any) -> Any:
             pass
 
-class ChangePinAPI(ServiceABC):
+class LinkBankAPI(ServiceABC):
     """Auto-generated service class"""
     
     def __init__(self):
@@ -34,12 +34,12 @@ class ChangePinAPI(ServiceABC):
     
     def getUrl(self, *args, **kwargs) -> str:
         """Return the URL for the API request."""
-        return f"{self.baseurl}api/changepinapi"
+        return f"{self.baseurl}api/linkbankapi"
     
     def getPayload(self, *args, **kwargs) -> Dict:
         """Create the JSON payload for the API request."""
         return {
-            "service": "ChangePinAPI",
+            "service": "LinkBankAPI",
             "timestamp": __import__('time').time(),
             "source": "auto_generated"
         }
