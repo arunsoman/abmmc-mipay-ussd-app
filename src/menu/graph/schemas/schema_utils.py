@@ -95,12 +95,12 @@ def get_validated_config(config_source: str, config: Optional[Dict[str, Any]] = 
             raise ValueError("No configuration provided")
         
         # Validate all nodes in the configuration
-        for node_id, node_config in config.items():
-            try:
-                validate_node_config(node_id, node_config)
-            except ValueError as e:
-                print(f"Skipping node {node_id}: {str(e)}")
-                continue
+        # for node_id, node_config in config.items():
+        #     try:
+        #         validate_node_config(node_id, node_config)
+        #     except ValueError as e:
+        #         print(f"Skipping node {node_id}: {str(e)}")
+        #         continue
         
         # Cache the validated configuration
         CONFIG_CACHE[config_source] = config

@@ -17,20 +17,26 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
         return "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
     def _log_request(self, method, path, query_params, body=None):
-        print(f"--- Unmatched Request ---")
+        print(f"\n{'='*60}")
+        print(f"REQUEST RECEIVED:")
+        print(f"{'='*60}")
         print(f"Method: {method}")
         print(f"Path: {path}")
         print(f"Query Parameters: {query_params}")
-        print(f"Headers: {dict(self.headers)}")
+        print(f"Headers:")
+        for header, value in self.headers.items():
+            print(f"  {header}: {value}")
         if body:
             print(f"Body: {body}")
-        print("------------------------")
-
+        print(f"{'='*60}")
 
     def do_GET(self):
         parsed_url = urlparse(self.path)
         path = parsed_url.path
         query_params = parse_qs(parsed_url.query)
+
+        # Log every GET request
+        self._log_request("GET", path, query_params)
 
         if path == "/ts/api/transaction-services/findWithdrawalReq":
             # getCashOutRequests: Return array of withdrawal requests
@@ -93,8 +99,7 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
                 self._send_response(400, {"responseCode": 400, "error": "Missing bank parameter", "data": None})
 
         else:
-            # Unmatched path: Log request and return dummy response
-            self._log_request("GET", path, query_params)
+            # Unmatched path: Return dummy response
             self._send_response(200, {"status": "success", 
                                       "auth":"SADDASDASDASDSD",
                                       "Authentication": "Sadasdasdasasasdsad"})
@@ -105,21 +110,29 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
         query_params = parse_qs(parsed_url.query)
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length).decode("utf-8")
+        
         try:
             payload = json.loads(post_data) if post_data else {}
         except json.JSONDecodeError:
-            payload = post_data  # Log raw body if not JSON
-            self._send_response(400, {"responseCode": 400, "error": "Invalid JSON payload", "data": None})
-            return
+            payload = post_data  # Keep raw body if not JSON
+
+        # Log every POST request
+        self._log_request("POST", path, query_params, payload)
+
+        # Try to parse as JSON for processing
+        try:
+            json_payload = json.loads(post_data) if post_data else {}
+        except json.JSONDecodeError:
+            json_payload = {}
 
         if path == "/tms/api/tms/router/basic":
             # StockTransferAPI, PayBreshnaBillAPI, transfer_menu, topup_self, topup_others
             required_fields = ["initiator", "context"]
-            if all(field in payload for field in required_fields) and "SERVICE_NAME" in payload["context"]:
-                service_name = payload["context"]["SERVICE_NAME"]
+            if all(field in json_payload for field in required_fields) and "SERVICE_NAME" in json_payload["context"]:
+                service_name = json_payload["context"]["SERVICE_NAME"]
                 if service_name == "BRESHNA_BILL":
                     # PayBreshnaBillAPI
-                    if all(key in payload["context"] for key in ["accNo", "TransactionPin", "AMOUNT"]):
+                    if all(key in json_payload["context"] for key in ["accNo", "TransactionPin", "AMOUNT"]):
                         data = {"status": "S", "receipt_number": f"BR{self._generate_receipt_number()}"}
                         self._send_response(200, {"responseCode": 200, "data": data, "error": None})
                     else:
@@ -137,7 +150,7 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
         elif path == "/api/pwd/update":
             # change_pin
             required_fields = ["old_pin", "new_pin", "confirm_pin"]
-            if all(field in payload for field in required_fields):
+            if all(field in json_payload for field in required_fields):
                 data = {"receipt_number": f"PW{self._generate_receipt_number()}"}
                 self._send_response(200, {"responseCode": 200, "data": data, "error": None})
             else:
@@ -145,7 +158,7 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
 
         elif path in ["/api/link_bank", "/api/transfer_bank", "/api/transfer_from_bank"]:
             # Generic bank endpoints
-            if "bank" in payload:
+            if "bank" in json_payload:
                 data = {"receipt_number": f"BK{self._generate_receipt_number()}"}
                 self._send_response(200, {"responseCode": 200, "data": data, "error": None})
             else:
@@ -153,7 +166,7 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/pay_bill":
             # delight_bill
-            if "provider" in payload and "account_id" in payload:
+            if "provider" in json_payload and "account_id" in json_payload:
                 data = {"receipt_number": f"BL{self._generate_receipt_number()}"}
                 self._send_response(200, {"responseCode": 200, "data": data, "error": None})
             else:
@@ -161,16 +174,15 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/buy_bundle":
             # data_bundle, voice_bundle
-            if "bundle_type" in payload and "option" in payload:
+            if "bundle_type" in json_payload and "option" in json_payload:
                 data = {"receipt_number": f"BD{self._generate_receipt_number()}"}
                 self._send_response(200, {"responseCode": 200, "data": data, "error": None})
             else:
                 self._send_response(400, {"responseCode": 400, "error": "Missing bundle_type or option", "data": None})
 
         else:
-            # Unmatched path: Log request and return dummy response
-            self._log_request("POST", path, query_params, payload)
-            self._send_response(200, {"stat": "success"})
+            # Unmatched path: Return dummy response
+            self._send_response(200, {"status": "success"})
     
     def do_PUT(self):
         self._handle_request()
@@ -217,18 +229,8 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
                 except Exception as e:
                     response['post_data'] = {'error': f'Failed to read POST data: {str(e)}'}
 
-        # Print request details
-        print(f"\n{'='*60}")
-        print(f"REQUEST RECEIVED:")
-        print(f"{'='*60}")
-        print(f"Method: {self.command}")
-        print(f"Path: {self.path}")
-        print(f"Query Parameters: {response['query_params']}")
-        print(f"Headers:")
-        for header, value in self.headers.items():
-            print(f"  {header}: {value}")
-        if response['post_data']:
-            print(f"POST Data: {response['post_data']}")
+        # Log the request using the same format
+        self._log_request(self.command, self.path, response['query_params'], response['post_data'])
         
         # Response headers
         response_headers = {
@@ -245,15 +247,6 @@ class DummyRequestHandler(BaseHTTPRequestHandler):
         # Response body
         response_body = json.dumps(response, indent=2)
         self.wfile.write(response_body.encode('utf-8'))
-        
-        # Print response details
-        print(f"\nRESPONSE SENT:")
-        print(f"Status: 200 OK")
-        print(f"Headers:")
-        for header, value in response_headers.items():
-            print(f"  {header}: {value}")
-        print(f"Body: {response_body}")
-        print(f"{'='*60}")
 
 def signal_handler(sig, frame):
     print('\nKeyboard interrupt received, shutting down the server.')

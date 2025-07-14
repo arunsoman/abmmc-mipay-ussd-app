@@ -44,15 +44,7 @@ class Msisdn_Node(MenuNode):
             return f"{formatted_response}{error_msg}"
         return "Service unavailable"
 
-    def getPrevious(self) -> str:
-        """Return the prompt of the previous node or a fallback message."""
-        if self.engine and self.engine.navigation_stack:
-            previous_node_id = self.engine.navigation_stack[-1]
-            previous_node = self.engine.nodes.get(previous_node_id)
-            if previous_node:
-                return previous_node.getNext()
-        return "No previous menu\nPress 0 to exit"
-
+    
     def handleUserInput(self, user_input: str) -> str:
         """Process user input and transition to the selected node."""
         self.validation_error = ""
@@ -77,3 +69,5 @@ class Msisdn_Node(MenuNode):
             self.validation_error = f"Invalid selection. Choose from {', '.join(sorted(self.valid_keys))}"
 
         return self.getNext()
+    
+        

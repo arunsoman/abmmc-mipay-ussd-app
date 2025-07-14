@@ -1,14 +1,13 @@
 from typing import Any, Dict
-from src.menu.graph.menu_state_management import MenuSessionManager
+# from src.menu.graph.menu_state_management import MenuSessionManager
 from src.menu.graph.nodes.node_abc import MenuNode
-
+from .global_share import service_config
 class ExitNode(MenuNode):
     def __init__(self, node_id: str, config: Dict[str, Any]):
         super().__init__(node_id, config)
 
     """Node to terminate the session."""
     def getNext(self) -> str:
-        MenuSessionManager.store_token(self.msisdn, "")
         return self.config.get("prompt", "Session ended")
     
     def getPrevious(self) -> str:
@@ -20,7 +19,8 @@ class ExitNode(MenuNode):
         return "No previous menu"
     
     def handleUserInput(self, user_input: str) -> str:
-        MenuSessionManager.store_token(self.msisdn, "") 
+        if self.msisdn in service_config:
+            del service_config[self.msisdn]
         if self.engine:
             self.engine.session_active = False
         return "Session ended"

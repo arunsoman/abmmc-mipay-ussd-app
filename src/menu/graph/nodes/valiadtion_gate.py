@@ -1,9 +1,8 @@
-from typing import Dict, Any, Optional
-from .node_abc import MenuNode
+from typing import Dict, Any, Optional, cast
+from src.menu.graph.nodes.node_abc import MenuNode
 import logging
 import requests
-from src.menu.graph.menu_state_management import MenuSessionManager
-
+from src.services.ValidationApi import Validate
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -27,40 +26,42 @@ class ValidationGateNode(MenuNode):
         super().reset_state(msisdn)
         self.current_attempts = 0
         self.validation_error = ""
-        self.cached_prompt = self.prompt
-
-    def getNext(self) -> str:
-        """Return cached prompt with validation error if present"""
-        error_msg = f"\n{self.validation_error}" if self.validation_error else ""
-        return self.cached_prompt + error_msg
-
+    
     def getPrevious(self) -> str:
-        """Return cached prompt as fallback"""
-        return self.cached_prompt
+        return super().getPrevious()
+    
+    def getNext(self) -> str:
+        if self.validation_error:
+            return self.validation_error
+        return self.config.get("prompt", "")
 
     def handleUserInput(self, user_input: str) -> str:
-        """Validate PIN, store token, and transition to next node"""
+        self.validation_error = ""
         self.current_attempts += 1
-
-        # Validate PIN
         if self.validation_url:
-            payload = {"password": user_input, "username": self.msisdn}
-            logger.info(f"Using validation service: {self.validation_url}")
-            response = self.make_post_request(payload)
-            logger.info(f"Service response: {response}")
-            if response and self.engine and response.get("auth_token", None):
-                MenuSessionManager.store_token(self.msisdn,  response.get("auth_token", None))
-                target_node = self.on_success.get("target_menu", "main_menu")
-                self.engine.set_current_node(target_node)
+            try:
+                payload = {"password": user_input, "username": self.msisdn}
+                cast(Validate, self.service).setMsisdn(self.msisdn)
+                response = self.service.doPost(payload, self.msisdn)
+                logger.info(f"Validation response for PIN {user_input}: {response}")
+                if response:
+                    target_node_id = self.next_nodes.get("success")
+                    if target_node_id and self.engine:
+                        self.engine.navigation_stack.append(self.node_id)
+                        self.engine.set_current_node(target_node_id)
+                        return self.engine.get_current_prompt()
+                    self.validation_error = "Invalid success node configuration"
+                else:
+                    self.validation_error = response.get("error", "Invalid PIN") if isinstance(response, dict) else "Invalid PIN"
+            except requests.RequestException as e:
+                self.validation_error = f"Validation error: {str(e)}"
+        else:
+            self.validation_error = "Validation URL not configured"
+        
+        if self.current_attempts >= self.max_attempts:
+            target_node_id = self.next_nodes.get("failure", "exit_node")
+            if target_node_id and self.engine:
+                self.engine.navigation_stack.append(self.node_id)
+                self.engine.set_current_node(target_node_id)
                 return self.engine.get_current_prompt()
-            else:
-                self.validation_error = "Some error"
-
-        # Check max attempts
-        if self.current_attempts >= self.max_attempts and self.engine:
-            target_node = self.on_failure.get("target_menu", "exit_node")
-            self.engine.set_current_node(target_node)
-            self.engine.session_active = False
-            return self.engine.get_current_prompt()
-
         return self.getNext()

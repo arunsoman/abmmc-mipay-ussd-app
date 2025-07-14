@@ -56,7 +56,6 @@ class USSDSessionManager:
         self.sessions: Dict[str, USSDSession] = {}
         self.lock = Lock()
         self.session_timeout = session_timeout  # AWCC standard timeout
-        print(f"**********USSDSessionManager initialized with session timeout: {self.session_timeout} ms")
         
     def create_session(
         self,
@@ -82,7 +81,6 @@ class USSDSessionManager:
             session = self.sessions.get(msisdn)
             if session and session.is_expired(self.session_timeout):
                 del self.sessions[msisdn]
-                print(" ==========Consider logging expiration here===============")
                 return None
             return session
         

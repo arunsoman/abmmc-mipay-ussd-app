@@ -1,168 +1,102 @@
-from typing import Dict, Any, Optional
-import re
+from typing import Any, Dict
 from src.menu.graph.nodes.node_abc import MenuNode
-from src.menu.graph.nodes.global_share import service_config
+from .global_share import service_config
 
 class SingleInputActionNode(MenuNode):
-    """Node for actions requiring a single user input, e.g., balance check."""
-    def __init__(self, node_id: str, config: Dict[str, Any]):
+    def __init__(self, node_id: str, config: dict):
         super().__init__(node_id, config)
-        self.state = "input"  # input -> confirm -> complete
-        self.input: Any = None  # Store single input
         self.input_key = config.get("input_key")
-        self.prompt = config.get("prompt", "")
         self.validation = config.get("validation", {})
-        self.confirmation_prompt = config.get("confirmation_prompt", "")
-        self.action_url = config.get("action_url")
-        self.params = config.get("params", {})
-        self.success_prompt = config.get("success_prompt", "Action completed\nStatus: {status}\nPress 9 to go back, 0 to exit")
+        self.state = "input"
+        self.input = ""
+        self.validation_error = ""
+        self.bundle_mapping_key = config.get("bundle_mapping_key")
+        self.bundle_details: Dict[str, Any] = {}
 
-    def parseResponse(self, response_data: Any) -> Any:
-        """Parse the JSON response from the POST request."""
-        if response_data and isinstance(response_data, dict):
-            if response_data.get("status"):
-                return response_data
-            self.validation_error = f"Action failed: {response_data.get('error', 'Unknown error')}"
+    def initialize_bundle_details(self) -> None:
+        if not self.bundle_mapping_key or not self.engine:
+            self.bundle_details = {}
+            print(f" 000 -No bundle_mapping_key or engine for node {self.node_id}")
+            return
+        selected_option = service_config.get(self.msisdn, {}).get("selected_bundle_option")
+        if not selected_option:
+            self.validation_error = "Error: No bundle option selected"
+            print(f"------XXXXX--------- No selected_bundle_option for msisdn {self.msisdn} in node {self.node_id}")
+            return
+        bundle_mapping = self.engine.config.get("bundle_mapping", {}).get(self.bundle_mapping_key, {})
+        if selected_option not in bundle_mapping:
+            self.validation_error = f"Error: Invalid bundle option {selected_option} for {self.bundle_mapping_key}"
+            print(f"--------- Invalid bundle option \
+                {selected_option} for {self.bundle_mapping_key} in node {self.node_id},\
+                    available: {list(bundle_mapping.keys())}")
+            self.bundle_details = {}
         else:
-            self.validation_error = "Action failed: Invalid response"
-        return None
+            self.bundle_details = bundle_mapping.get(selected_option, {})
+            print(f"Bundle details for node {self.node_id}: {self.bundle_details}")
+            """Initialize bundle details after engine is set."""
+            if not self.bundle_mapping_key or not self.engine:
+                self.bundle_details = {}
+                return
+            selected_option = service_config.get(self.msisdn, {}).get("selected_bundle_option")
+            bundle_mapping = self.engine.config.get("bundle_mapping", {}).get(self.bundle_mapping_key, {})
+            if not selected_option or selected_option not in bundle_mapping:
+                self.validation_error = "Error: Invalid bundle selection"
+                self.bundle_details = {}
+            else:
+                self.bundle_details = bundle_mapping.get(selected_option, {})
 
     def getNext(self) -> str:
-        """Generate the next prompt based on the current state."""
+        if self.validation_error:
+            return self.validation_error
         if self.state == "input":
-            error_msg = f"\n{self.validation_error}" if self.validation_error else ""
-            return f"{self.prompt}{error_msg}"
-        elif self.state == "confirm":
-            prompt = self.confirmation_prompt
-            prompt = prompt.replace(f"{{{self.input_key}}}", str(self.input))
-            return f"{prompt}\n"
+            return self.config.get("prompt", "").format(**self.bundle_details)
         elif self.state == "complete":
-            return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
-        return "Service unavailable"
-
-    def getPrevious(self) -> str:
-        """Return the prompt of the previous node or a fallback message."""
-        if self.engine and self.engine.navigation_stack:
-            previous_node_id = self.engine.navigation_stack[-1]
-            previous_node = self.engine.nodes.get(previous_node_id)
-            if previous_node:
-                return previous_node.getNext()
-        return "No previous menu\nPress 9 to go back, 0 to exit"
-
-    def validate(self, user_input: str) -> str:
-        """Validate user input based on the current state."""
-        self.validation_error = ""
-        
-        if self.state == "input":
-            if self.validation.get("type") == "numeric":
-                try:
-                    value = float(user_input)
-                    if "min" in self.validation and value < self.validation["min"]:
-                        self.validation_error = f"Value must be at least {self.validation['min']}"
-                        return ""
-                    if "max" in self.validation and value > self.validation["max"]:
-                        self.validation_error = f"Value must not exceed {self.validation['max']}"
-                        return ""
-                    self.input = value
-                    return "valid"
-                except ValueError:
-                    self.validation_error = "Invalid numeric input"
-                    return ""
-            elif "regex" in self.validation:
-                if re.match(self.validation["regex"], user_input):
-                    self.input = user_input
-                    return "valid"
-                self.validation_error = "Invalid input format"
-                return ""
-            elif "options" in self.validation:
-                try:
-                    choice = int(user_input)
-                    options = self.validation.get("options", [])
-                    if 1 <= choice <= len(options):
-                        self.input = options[choice - 1]
-                        return "valid"
-                    self.validation_error = f"Invalid selection. Choose 1-{len(options)}"
-                    return ""
-                except ValueError:
-                    self.validation_error = "Invalid selection"
-                    return ""
-            else:
-                self.input = user_input
-                return "valid"
-        
-        elif self.state == "confirm":
-            if user_input in ["1", "2"]:
-                return user_input
-            self.validation_error = "Please select 1 or 2"
-            return ""
-        
-        elif self.state == "complete":
-            if user_input in ["9", "0"] or user_input in self.next_nodes:
-                return user_input
-            self.validation_error = "Invalid option. Press 9 to go back, 0 to exit"
-            return "0"  # Default to exit on invalid input
-        
+            return self.validation_error or self.config.get("success_prompt", "").format(**self.bundle_details)
         return ""
 
+    def getPrevious(self) -> str:
+        """Get the prompt of the previous node or a fallback message."""
+        if self.engine and self.engine.navigation_stack:
+            previous_node_id = self.engine.navigation_stack[-1]
+            if previous_node_id in self.engine.nodes:
+                return self.engine.nodes[previous_node_id].getNext()
+        return "No previous node available"
+
+    def validateInput(self, user_input: str) -> bool:
+        if "regex" in self.validation:
+            import re
+            return bool(re.match(self.validation["regex"], user_input))
+        return True
+
+    def parseResponse(self, response_data: Any) -> Any:
+        if response_data and isinstance(response_data, dict):
+            if response_data.get("status"):
+                return {**{"receipt_number": "N/A", "error_message": "Unknown error"}, **response_data}
+            self.validation_error = self.config.get("error_prompt", "Action failed: {error_message}").format(
+                error_message=response_data.get("error", "Invalid response"), **self.bundle_details
+            )
+        else:
+            self.validation_error = self.config.get("error_prompt", "Action failed: Invalid response").format(
+                error_message="Invalid response", **self.bundle_details
+            )
+        return None
+
     def handleUserInput(self, user_input: str) -> str:
-        """Process user input, update state, and return the next prompt."""
-        validation_result = self.validate(user_input)
-        
-        if self.state == "input" and validation_result == "valid":
-            self.state = "confirm"
-            return self.getNext()
-        
-        elif self.state == "confirm":
-            if validation_result == "1":
+        self.validation_error = ""
+        if self.state == "input":
+            if self.validateInput(user_input):
+                self.input = user_input
                 self.state = "complete"
-                if self.action_url:
-                    payload = {
-                        "msisdn": self.msisdn,
-                        self.input_key: self.input,
-                        **self.params
-                    }
-                    for key, value in payload.items():
-                        if isinstance(value, str) and value.startswith("<") and value.endswith(">"):
-                            param_key = value[1:-1]
-                            payload[key] = self.input if param_key == self.input_key else value
-                    
-                    response_data = self.make_post_request(self.action_url, payload)
-                    if response_data:
-                        self.success_prompt = self.success_prompt.format(**response_data)
-                        return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
-                    else:
-                        self.state = "complete"
-                        return f"{self.validation_error}\nPress 9 to go back, 0 to exit"
-                return f"{self.success_prompt}\nPress 9 to go back, 0 to exit"
-            elif validation_result == "2":
-                if self.engine:
-                    self.engine.set_current_node("exit_node")
-                    return self.engine.get_current_prompt()
-                return "Session ended"
-        
-        elif self.state == "complete":
-            if validation_result == "9":
-                if self.engine and self.engine.navigation_stack:
-                    target_node_id = self.engine.navigation_stack.pop()
-                    self.engine.set_current_node(target_node_id)
-                    self.state = "input"
-                    self.input = None
-                    return self.engine.get_current_prompt()
-                return "No previous menu\nPress 9 to go back, 0 to exit"
-            elif validation_result == "0" or validation_result == "":
-                if self.engine:
-                    self.engine.set_current_node("exit_node")
-                    self.state = "input"
-                    self.input = None
-                    return self.engine.get_current_prompt()
-                return "Session ended"
-            elif validation_result in self.next_nodes:
-                target_node_id = self.next_nodes[validation_result]
-                if self.engine and self.engine.current_node_id:
-                    self.engine.navigation_stack.append(self.engine.current_node_id)
-                    self.engine.set_current_node(target_node_id)
-                    self.state = "input"
-                    self.input = None
-                    return self.engine.get_current_prompt()
-        
+                payload = {
+                    "msisdn": self.msisdn,
+                    self.input_key: user_input,
+                    **{k: v.format(**self.bundle_details) if isinstance(v, str) else v for k, v in self.config.get("params", {}).items()}
+                }
+                response = self.make_post_request(payload)
+                response_data = self.parseResponse(response)
+                if response_data:
+                    return self.config.get("success_prompt", "").format(**response_data, **self.bundle_details)
+                return self.validation_error
+            else:
+                self.validation_error = self.config.get("validation_error", "Invalid input")
         return self.getNext()
